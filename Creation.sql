@@ -1,28 +1,38 @@
 CREATE TABLE orders
 (
-    order_id UUID PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    item_id INTEGER NOT NULL,
+    id UUID PRIMARY KEY,
+    order_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    item_id TEXT NOT NULL,
     -- CONSTRAINT fk_order_user
     --   FOREIGN KEY(user_id)
     --     REFERENCES payments(user_id)
-    checkout NUMBER(1) NOT NULL,
+    -- checkout NUMBER(1) NOT NULL,
 );
 
 CREATE TABLE payments
 (
-    user_id UUID PRIMARY KEY,
-    order_id INTEGER NOT NULL,
-    amount DOUBLE NOT NULL,
+    id UUID PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    order_id TEXT NOT NULL,
+    amount INTEGER NOT NULL,
     -- CONSTRAINT fk_user_order
     --   FOREIGN KEY(order_id)
     --     REFERENCES orders(order_id)
-    status NUMBER(1) NOT NULL,
+    paid NUMBER(1) DEFAULT 0 NOT NULL,
 );
 
 CREATE TABLE stocks
 (
-    item_id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY,
+    item_id TEXT NOT NULL,
     amount INTEGER NOT NULL,
-    price DOUBLE NOT NULL,
+    price INTEGER NOT NULL,
+);
+
+CREATE TABLE users
+(
+    id UUID PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    credit INTEGER DEFAULT 0 NOT NULL,
 );
