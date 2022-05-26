@@ -1,0 +1,15 @@
+from sqlalchemy import Column, Text, Integer
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import declarative_base
+
+Base = declarative_base()
+
+class Stock(Base):
+    """The Account class corresponds to the "accounts" database table.
+    """
+    __tablename__ = 'stocks'
+
+    id = Column(UUID(as_uuid=True), primary_key=True)
+    item_id = Column(Text, nullable=False)
+    stock = Column(Integer, nullable=False)
+    price = Column(Integer, nullable=False)
