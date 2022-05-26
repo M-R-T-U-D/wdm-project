@@ -11,7 +11,7 @@ class Payment(Base):
     __tablename__ = 'payments'
 
     id = Column(UUID(as_uuid=True), primary_key=True)
-    user_id = Column(Text)
-    order_id = Column(Text)
-    amount = Column(Integer)
-    paid = Column(Integer)
+    user_id = Column(Text, nullable=False)
+    order_id = Column(Text, nullable=False)
+    amount = Column(Integer, nullable=False)
+    paid = Column(Boolean, nullable=False, default=False)
