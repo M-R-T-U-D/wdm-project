@@ -9,7 +9,7 @@ class Stock(Base):
     """
     __tablename__ = 'stocks'
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
-    item_id = Column(Text, nullable=False)
+    id = Column(Integer, primary_key=True)
+    item_id = Column(UUID(as_uuid=True), nullable=False)
     stock = Column(Integer, nullable=False)
     price = Column(Integer, nullable=False)

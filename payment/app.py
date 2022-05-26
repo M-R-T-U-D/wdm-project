@@ -1,6 +1,4 @@
-import imp
 import os
-import atexit
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_cockroachdb import run_transaction
@@ -8,15 +6,14 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 import uuid
 
 from flask import Flask, jsonify
-from payment_model import Payment
-from user_model import User
+from models import Payment, User, Base
 
 app = Flask("payment-service")
 
-DATABASE_URL= "postgresql://127.0.0.1:26257?sslmode=disable"
+DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
 
 try:
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(DATABASE_URL, echo=True)
 except Exception as e:
         print("Failed to connect to database.")
         print(f"{e}")
@@ -58,7 +55,7 @@ def add_credit_helper(session, user_id, amount):
             print("Multiple users were found while one is expected")
     user.credit += amount
 
-@app.post('/add_funds/<user_id>/<amount>')
+@app.post('/add_funds/<user_id>/<int:amount>')
 def add_credit(user_id: str, amount: int):
     try:
         run_transaction(sessionmaker(bind=engine), lambda s: add_credit_helper(s, user_id, amount))
@@ -71,7 +68,7 @@ def remove_credit_helper(session, user_id, order_id, amount):
     try:
         user = session.query(User).filter(User.user_id == user_id).one()
         new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount)
-        if (user.credit >= amount):
+        if (user.credit >= amount): # TODO: should raise exception when this is false?
             user.credit -= amount
             new_payment.paid = True
         session.add(new_payment)
@@ -80,7 +77,7 @@ def remove_credit_helper(session, user_id, order_id, amount):
     except MultipleResultsFound:
             print("Multiple users were found while one is expected")
 
-@app.post('/pay/<user_id>/<order_id>/<amount>')
+@app.post('/pay/<user_id>/<order_id>/<int:amount>')
 def remove_credit(user_id: str, order_id: str, amount: int):
     try:
         run_transaction(sessionmaker(bind=engine), lambda s: remove_credit_helper(s, user_id, order_id, amount))
@@ -122,3 +119,11 @@ def payment_status(user_id: str, order_id: str):
         run_transaction(sessionmaker(bind=engine), lambda s: status_helper(s, user_id, order_id))
     except Exception as e:
         print(e)
+
+# TODO: delete main when testing is finialized
+def main():
+    Base.metadata.create_all(bind=engine, checkfirst=True)
+    app.run(host="0.0.0.0", port=8081, debug=True)
+
+if __name__ == '__main__':
+    main()

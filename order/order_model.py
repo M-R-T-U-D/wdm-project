@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Text
+from sqlalchemy import Column, Integer, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base
 
@@ -10,7 +10,7 @@ class Order(Base):
     """
     __tablename__ = 'orders'
 
-    id = Column(UUID(as_uuid=True), primary_key=True)
-    user_id = Column(Text, nullable=False)
-    order_id = Column(Text, nullable=False)
-    item_id = Column(Text, nullable=False)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(UUID(as_uuid=True), nullable=False)
+    order_id = Column(UUID(as_uuid=True), nullable=False)
+    item_id = Column(UUID(as_uuid=True), nullable=False)

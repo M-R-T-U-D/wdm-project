@@ -2,3 +2,5 @@
 .DS_Store
 cockroach-data
 venv
+*.rest
+*__pycache__*
