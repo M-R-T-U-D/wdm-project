@@ -34,6 +34,10 @@ def find_user_helper(session, user_id):
             print("Multiple users were found while one is expected")
     return jsonify(user_id=user.user_id, credit=user.credit)
 
+def test(s, us):
+    ns = s.query(User).filter(User.user_id == us).one()
+    return User(id=ns.id, user_id=ns.user_id, credit=ns.credit)
+
 @app.get('/find_user/<user_id>')
 def find_user(user_id: str):
     # try:
@@ -44,7 +48,11 @@ def find_user(user_id: str):
     #         print("Multiple users were found while one is expected")
     # run_transaction(sessionmaker(bind=engine), lambda s: find_user_helper(s, user_id))
     # return jsonify(user_id=user.user_id, credit=user.credit)
-    pass
+    newus = run_transaction(sessionmaker(bind=engine), lambda s: test(s, user_id))
+    print(newus.id)
+    print(newus.user_id)
+    print(newus.credit)
+    return jsonify("OK")
 
 def add_credit_helper(session, user_id, amount):
     try:
