@@ -34,25 +34,29 @@ def find_user_helper(session, user_id):
             print("Multiple users were found while one is expected")
     return jsonify(user_id=user.user_id, credit=user.credit)
 
-def test(s, us):
-    ns = s.query(User).filter(User.user_id == us).one()
-    return User(id=ns.id, user_id=ns.user_id, credit=ns.credit)
+def find_user_helper(session, user_id):
+    try:
+        user = session.query(User).filter(User.user_id == user_id).one()
+        return user
+    except NoResultFound:
+            print("No user was found")
+    except MultipleResultsFound:
+            print("Multiple users were found while one is expected")
+    return None
 
 @app.get('/find_user/<user_id>')
 def find_user(user_id: str):
-    # try:
-    #     user = session.query(User).filter(User.user_id == user_id).one()
-    # except NoResultFound:
-    #         print("No user was found")
-    # except MultipleResultsFound:
-    #         print("Multiple users were found while one is expected")
-    # run_transaction(sessionmaker(bind=engine), lambda s: find_user_helper(s, user_id))
-    # return jsonify(user_id=user.user_id, credit=user.credit)
-    newus = run_transaction(sessionmaker(bind=engine), lambda s: test(s, user_id))
-    print(newus.id)
-    print(newus.user_id)
-    print(newus.credit)
-    return jsonify("OK")
+    # expire_on_commit=False to reuse returned User object attrs
+    ret_user = run_transaction(
+        sessionmaker(bind=engine, expire_on_commit=False),
+        lambda s: find_user_helper(s, user_id)
+    )
+    if ret_user:
+        user_dict = ret_user.as_dict()
+        user_dict.pop('id') # remove id from the user dict
+        return jsonify(user_dict)
+    else:
+        return '',400
 
 def add_credit_helper(session, user_id, amount):
     try:

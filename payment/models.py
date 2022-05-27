@@ -16,6 +16,9 @@ class Payment(Base):
     amount = Column(Integer, nullable=False)
     paid = Column(Boolean, nullable=False, default=False)
 
+    def as_dict(self):
+       return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+
 class User(Base):
     """The Account class corresponds to the "accounts" database table.
     """
@@ -24,3 +27,6 @@ class User(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(UUID(as_uuid=True), nullable=False)
     credit = Column(Integer, nullable=False, default=0)
+
+    def as_dict(self):
+       return {c.name: getattr(self, c.name) for c in self.__table__.columns}
