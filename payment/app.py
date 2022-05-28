@@ -33,15 +33,6 @@ def create_user():
 def find_user_helper(session, user_id):
     try:
         user = session.query(User).filter(User.user_id == user_id).one()
-    except NoResultFound:
-        print("No user was found")
-    except MultipleResultsFound:
-        print("Multiple users were found while one is expected")
-    return jsonify(user_id=user.user_id, credit=user.credit)
-
-def find_user_helper(session, user_id):
-    try:
-        user = session.query(User).filter(User.user_id == user_id).one()
         return user
     except NoResultFound:
         print("No user was found")
