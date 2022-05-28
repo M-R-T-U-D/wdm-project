@@ -33,16 +33,16 @@ def create_order(user_id):
     return jsonify(order_id=order_uuid)
 
 def remove_order_helper(session, order_id):
-    session.query(UserOrder).filter(UserOrder.order_id == order_id).delete()
+    # TODO: send request to payment service to delete user payment
+    # session.query(UserOrder).filter(UserOrder.order_id == order_id).delete()
     session.query(OrderItem).filter(OrderItem.order_id == order_id).delete()
-    session.commit()
 
 @app.delete('/remove/<order_id>')
 def remove_order(order_id):
     try:
         run_transaction(
-        sessionmaker(bind=engine, expire_on_commit=False),
-        lambda s: remove_order_helper(s, order_id)
+            sessionmaker(bind=engine, expire_on_commit=False),
+            lambda s: remove_order_helper(s, order_id)
         )
     except NoResultFound:
         return "No order was found", 400
@@ -74,15 +74,14 @@ def add_item(order_id, item_id):
 
 def remove_order_item_helper(session, order_id, item_id):
     session.query(OrderItem).filter(OrderItem.order_id == order_id and OrderItem.item_id == item_id).delete()
-    session.commit()
 
 @app.delete('/removeItem/<order_id>/<item_id>')
 def remove_item(order_id, item_id):
     try:
         run_transaction(
-        sessionmaker(bind=engine, expire_on_commit=False),
-        lambda s: remove_order_item_helper(s, order_id, item_id)
-    )
+            sessionmaker(bind=engine, expire_on_commit=False),
+            lambda s: remove_order_item_helper(s, order_id, item_id)
+        )
     except NoResultFound:
         return "No order_item was found", 400
 

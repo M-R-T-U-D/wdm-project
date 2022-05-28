@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Text, Integer, Boolean
+from sqlalchemy import Column, Text, Integer, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base
 
@@ -6,7 +6,7 @@ Base = declarative_base()
 
 
 class Payment(Base):
-    """The Account class corresponds to the "accounts" database table.
+    """The Payment class corresponds to the "payments" database table.
     """
     __tablename__ = 'payments'
 
@@ -16,17 +16,16 @@ class Payment(Base):
     amount = Column(Integer, nullable=False)
     paid = Column(Boolean, nullable=False, default=False)
 
-    def as_dict(self):
+    def to_dict(self):
        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 class User(Base):
-    """The Account class corresponds to the "accounts" database table.
+    """The User class corresponds to the "users" database table.
     """
     __tablename__ = 'users'
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(UUID(as_uuid=True), nullable=False)
+    user_id = Column(UUID(as_uuid=True), primary_key=True)
     credit = Column(Integer, nullable=False, default=0)
 
-    def as_dict(self):
+    def to_dict(self):
        return {c.name: getattr(self, c.name) for c in self.__table__.columns}

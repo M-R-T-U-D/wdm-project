@@ -3,6 +3,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_cockroachdb import run_transaction
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
+from werkzeug.exceptions import HTTPException
+from flask import abort, Response
 import uuid
 
 from flask import Flask, jsonify
@@ -12,16 +14,36 @@ app = Flask("payment-service")
 
 DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
 
+# Create engine to connect to the database
 try:
     engine = create_engine(DATABASE_URL, echo=True)
 except Exception as e:
     print("Failed to connect to database.")
     print(f"{e}")
 
+# @app.errorhandler(HTTPException)
+# def handle_http_exception(e: HTTPException):
+#     """Return JSON for HTTP errors."""
+#     print(e.get_response())
+#     return jsonify(error=400)
+
+# Catch all unhandled exceptions
+@app.errorhandler(Exception)
+def handle_exception(e):
+    # pass through HTTP errors
+    if isinstance(e, HTTPException):
+        return jsonify(error=str(e)), 400
+    
+    # now you're handling non-HTTP exceptions only
+    return jsonify(error=str(e)), 400
+
 class NotEnoughCreditException(Exception):
     """Exception class for handling insufficient credits of a user"""
     def __str__(self) -> str:
          return "Not enough credits"
+
+
+
 
 @app.post('/create_user')
 def create_user():
@@ -31,28 +53,27 @@ def create_user():
     return jsonify(user_id=user_uuid)
 
 def find_user_helper(session, user_id):
-    try:
-        user = session.query(User).filter(User.user_id == user_id).one()
-        return user
-    except NoResultFound:
-        print("No user was found")
-    except MultipleResultsFound:
-        print("Multiple users were found while one is expected")
-    return None
+    user = session.query(User).filter(User.user_id == user_id).one()
+    return user
 
 @app.get('/find_user/<user_id>')
 def find_user(user_id: str):
-    # expire_on_commit=False to reuse returned User object attrs
-    ret_user = run_transaction(
-        sessionmaker(bind=engine, expire_on_commit=False),
-        lambda s: find_user_helper(s, user_id)
-    )
-    if ret_user:
-        user_dict = ret_user.as_dict()
-        user_dict.pop('id') # remove id from the user dict
-        return jsonify(user_dict)
-    else:
-        return '',400
+    try:
+        # expire_on_commit=False to reuse returned User object attrs
+        ret_user = run_transaction(
+            sessionmaker(bind=engine, expire_on_commit=False),
+            lambda s: find_user_helper(s, user_id)
+        )
+        if ret_user:
+            user_dict = ret_user.to_dict()
+            user_dict.pop('id') # remove id from the user dict
+            return jsonify(user_dict)
+        else:
+            return 'Something went wrong finding user!', 400
+    except NoResultFound:
+        return "No user was found", 400
+    except MultipleResultsFound:
+        return "Multiple users were found while one is expected", 400
 
 def add_credit_helper(session, user_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
