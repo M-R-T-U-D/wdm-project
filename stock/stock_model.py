@@ -11,5 +11,5 @@ class Stock(Base):
 
     id = Column(Integer, primary_key=True)
     item_id = Column(UUID(as_uuid=True), nullable=False)
-    stock = Column(Integer, nullable=False)
+    stock = Column(Integer, nullable=False, default=0)
     price = Column(Integer, nullable=False)
