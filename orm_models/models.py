@@ -26,10 +26,12 @@ class User(Base):
 
     user_id = Column(UUID(as_uuid=True), primary_key=True)
     credit = Column(Integer, nullable=False, default=0)
-    fk_user_order_id = relationship(
+    fk_orders = relationship(
         "Order",
         cascade="all, delete", # if there are children present in the session as the User object, then mark all of them for deletion
-        passive_deletes=True # defers the deletion of children to the database
+        passive_deletes=True, # defers the deletion of children to the database
+        backref='users', # any changes to the order objects is reflected back to the corresponding user object and vice versa (efficiency)
+        cascade_backrefs=False # avoids headache and confusion
     )
 
     def to_dict(self):
@@ -45,7 +47,9 @@ class Order(Base):
     fk_order_item_id = relationship(
         "Cart",
         cascade="all, delete",
-        passive_deletes=True
+        passive_deletes=True, 
+        backref='orders',
+        cascade_backrefs=False
     )
 
     def to_dict(self):
