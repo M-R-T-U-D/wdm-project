@@ -1,4 +1,5 @@
 import os
+import sys
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_cockroachdb import run_transaction
@@ -7,7 +8,8 @@ import uuid
 
 from flask import Flask, jsonify
 
-# NOTE: make sure to run this app.py from root, so python order/app.py so that models are also read correctly from root
+# NOTE: make sure to run this app.py from this folder, so python app.py so that models are also read correctly from root
+sys.path.append("../")
 from orm_models.models import Order, Cart
 
 
