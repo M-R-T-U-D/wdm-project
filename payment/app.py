@@ -116,7 +116,7 @@ def pay_helper(session, user_id, order_id, amount):
 
     
 @app.post('/pay/<user_id>/<order_id>/<int:amount>')
-def pay(user_id: str, order_id: str, amount: int):
+def remove_credit(user_id: str, order_id: str, amount: int):
     try:
         run_transaction(
             sessionmaker(bind=engine),
