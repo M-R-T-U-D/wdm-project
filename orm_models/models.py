@@ -110,3 +110,6 @@ class Stock(Base):
     item_id = Column(UUID(as_uuid=True), primary_key=True)
     stock = Column(Integer, nullable=False, default=0)
     price = Column(Integer, nullable=False)
+
+    def to_dict(self):
+       return {c.name: getattr(self, c.name) for c in self.__table__.columns}
