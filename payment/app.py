@@ -69,7 +69,7 @@ def find_user(user_id: str):
         )
 
         user_dict = ret_user.to_dict()
-        user_dict.pop('id') # remove id from the user dict
+        user_dict.pop('payment_id') # remove id from the user dict
 
         return jsonify(user_dict), 200
     except NoResultFound:
