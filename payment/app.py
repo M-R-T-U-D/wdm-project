@@ -68,10 +68,7 @@ def find_user(user_id: str):
             lambda s: find_user_helper(s, user_id)
         )
 
-        user_dict = ret_user.to_dict()
-        user_dict.pop('payment_id') # remove id from the user dict
-
-        return jsonify(user_dict), 200
+        return jsonify(ret_user.to_dict()), 200
     except NoResultFound:
         return "No user was found", 400
     except MultipleResultsFound:
