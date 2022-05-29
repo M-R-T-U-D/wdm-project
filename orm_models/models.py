@@ -99,7 +99,6 @@ class Cart(Base):
         ForeignKey('orders.order_id', ondelete="CASCADE"), 
         nullable=False
     )
-    price = Column(Integer, nullable=False)
 
     def to_dict(self):
        return {c.name: getattr(self, c.name) for c in self.__table__.columns}

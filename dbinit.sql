@@ -13,7 +13,6 @@ CREATE TABLE carts
   id INTEGER PRIMARY KEY,
   item_id UUID NOT NULL,
   order_id UUID NOT NULL,
-  price INTEGER NOT NULL,
   CONSTRAINT fk_order_item_id
       FOREIGN KEY(order_id)
 	    REFERENCES orders(order_id)
