@@ -2,7 +2,6 @@ CREATE TABLE orders
 (
   order_id UUID PRIMARY KEY,
   user_id UUID NOT NULL,
-  paid BOOLEAN DEFAULT FALSE NOT NULL,
   CONSTRAINT fk_user_order_id
       FOREIGN KEY(user_id)
 	    REFERENCES users(user_id)
@@ -26,6 +25,8 @@ CREATE TABLE payments
   payment_id INTEGER PRIMARY KEY,
   user_id UUID NOT NULL,
   order_id UUID NOT NULL,
+  amount INTEGER NOT NULL,
+  paid BOOLEAN DEFAULT FALSE NOT NULL,
   CONSTRAINT fk_user_payment_id
       FOREIGN KEY(user_id)
 	    REFERENCES users(user_id)

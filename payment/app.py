@@ -11,7 +11,7 @@ from flask import Flask, jsonify
 
 # NOTE: make sure to run this app.py from this folder, so python app.py so that models are also read correctly from root
 sys.path.append("../")
-from orm_models.models import Payment, User, Base 
+from orm_models.models import Order, Payment, User, Cart, Base 
 
 app = Flask("payment-service")
 
@@ -53,7 +53,7 @@ def create_user():
     user_uuid = uuid.uuid4()
     new_user = User(user_id=user_uuid)
     run_transaction(sessionmaker(bind=engine), lambda s: s.add(new_user))
-    return jsonify(user_id=user_uuid)
+    return jsonify(user_id=user_uuid), 200
 
 def find_user_helper(session, user_id):
     user = session.query(User).filter(User.user_id == user_id).one()
@@ -67,12 +67,11 @@ def find_user(user_id: str):
             sessionmaker(bind=engine, expire_on_commit=False),
             lambda s: find_user_helper(s, user_id)
         )
-        if ret_user:
-            user_dict = ret_user.to_dict()
-            user_dict.pop('id') # remove id from the user dict
-            return jsonify(user_dict)
-        else:
-            return 'Something went wrong finding user!', 400
+
+        user_dict = ret_user.to_dict()
+        user_dict.pop('id') # remove id from the user dict
+
+        return jsonify(user_dict), 200
     except NoResultFound:
         return "No user was found", 400
     except MultipleResultsFound:
@@ -89,30 +88,44 @@ def add_credit(user_id: str, amount: int):
             sessionmaker(bind=engine),
             lambda s: add_credit_helper(s, user_id, amount)
         )
-        return jsonify(done=True)
+        return jsonify(done=True), 200
     except NoResultFound:
         print("No user was found")
     except MultipleResultsFound:
         print("Multiple users were found while one is expected")
-    return jsonify(done=False)
+    return jsonify(done=False), 400
 
-def remove_credit_helper(session, user_id, order_id, amount):
+def pay_helper(session, user_id, order_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
-    new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount)
-    if (user.credit >= amount):
-        user.credit -= amount
-        new_payment.paid = True
+    existing_payment = session.query(Payment).filter(
+        Payment.user_id == user_id,
+        Payment.order_id == order_id
+    ).first()
+
+    if existing_payment:
+        if not existing_payment.paid:
+                if user.credit >= amount:
+                    user.credit -= amount
+                    existing_payment.paid = True
+                else:
+                    raise NotEnoughCreditException()
     else:
-        raise NotEnoughCreditException()
-    session.add(new_payment)
+        if user.credit >= amount:
+            user.credit -= amount
+        else:
+            raise NotEnoughCreditException()
+        new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount, paid=True)
+        session.add(new_payment)
+
     
 @app.post('/pay/<user_id>/<order_id>/<int:amount>')
-def remove_credit(user_id: str, order_id: str, amount: int):
+def pay(user_id: str, order_id: str, amount: int):
     try:
         run_transaction(
             sessionmaker(bind=engine),
-            lambda s: remove_credit_helper(s, user_id, order_id, amount)
+            lambda s: pay_helper(s, user_id, order_id, amount)
         )
+        return '', 200
     except NoResultFound:
         return "No user or payment was found", 400
     except MultipleResultsFound:
@@ -122,9 +135,13 @@ def remove_credit(user_id: str, order_id: str, amount: int):
 
 def cancel_payment_helper(session, user_id, order_id):
     user = session.query(User).filter(User.user_id == user_id).one()
-    payment = session.query(Payment).filter(Payment.user_id == user_id and Payment.order_id == order_id).one()
-    user.credit += payment.amount
-    payment.paid = False
+    payment = session.query(Payment).filter(
+        Payment.user_id == user_id,
+        Payment.order_id == order_id
+    ).first()
+    if payment.paid:
+        payment.paid = False
+        user.credit += payment.amount
     
 @app.post('/cancel/<user_id>/<order_id>')
 def cancel_payment(user_id: str, order_id: str):
@@ -133,6 +150,7 @@ def cancel_payment(user_id: str, order_id: str):
             sessionmaker(bind=engine), 
             lambda s: cancel_payment_helper(s, user_id, order_id)
         )
+        return '', 200
     except NoResultFound:
         return "No user or payment was found", 400
     except MultipleResultsFound:
@@ -143,8 +161,7 @@ def status_helper(session, user_id, order_id):
     payment = session \
         .query(Payment) \
         .filter(
-            Payment.user_id == user_id 
-            and
+            Payment.user_id == user_id, # and
             Payment.order_id == order_id
         ).one()
     return payment.paid

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Text, Integer, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import declarative_base, relationship
 
@@ -27,7 +27,9 @@ class Payment(Base):
         ForeignKey('orders.order_id', ondelete="CASCADE"), 
         nullable=False
     )
-
+    paid = Column(Boolean, nullable=False, default=False)
+    amount = Column(Integer, nullable=False)
+    
     def to_dict(self):
        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
@@ -67,7 +69,6 @@ class Order(Base):
         ForeignKey('users.user_id', ondelete="CASCADE"), 
         nullable=False
     )
-    paid = Column(Boolean, nullable=False, default=False)
     fk_item_ids = relationship(
         "Cart",
         # cascade="all, delete",
