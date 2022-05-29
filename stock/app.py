@@ -8,10 +8,12 @@ import uuid
 
 from flask import Flask, jsonify
 
-from stock.stock_model import Stock
+# NOTE: make sure to run this app.py from root, so python stock/app.py so that models are also read correctly from root
+from orm_models.models import Stock
 
 app = Flask("stock-service")
 
+# TODO: Read db url from env variable instead of hardcoding here 
 DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
 
 try:

@@ -7,9 +7,8 @@ import uuid
 
 from flask import Flask, jsonify
 
-from order.order_model import OrderItem, UserOrder
-from payment.app import payment_status, remove_credit
-from stock.app import find_item, remove_stock
+# NOTE: make sure to run this app.py from root, so python order/app.py so that models are also read correctly from root
+from orm_models.models import Order, Cart
 
 
 gateway_url = os.environ['GATEWAY_URL']

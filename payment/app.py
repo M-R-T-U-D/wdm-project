@@ -4,11 +4,12 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy_cockroachdb import run_transaction
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from werkzeug.exceptions import HTTPException
-from flask import abort, Response
 import uuid
 
 from flask import Flask, jsonify
-from models import Payment, User, Base
+
+# NOTE: make sure to run this app.py from root, so python payment/app.py so that models are also read correctly from root
+from orm_models.models import Payment, User, Base 
 
 app = Flask("payment-service")
 

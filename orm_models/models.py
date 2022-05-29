@@ -4,17 +4,29 @@ from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
 
+# ON DELETE CASCADE: https://stackoverflow.com/questions/5033547/sqlalchemy-cascade-delete
+    # So, to delete an object and to let db handle the cascading deletions, use this syntax: session.query(Parent).filter(...).delete()
+    # AND NOT this syntax: session.delete(parent_obj) so that individual DELETE operations are not emitted 
+    # via ORM since no associated objects are present in memory 
+# ON WHY cascade_backrefs is set to False in all the models: https://docs.sqlalchemy.org/en/14/changelog/migration_14.html#change-5150
+
 
 class Payment(Base):
     """The Payment class corresponds to the "payments" database table.
     """
     __tablename__ = 'payments'
 
-    id = Column(Integer, primary_key=True)
-    user_id = Column(UUID(as_uuid=True), nullable=False)
-    order_id = Column(UUID(as_uuid=True), nullable=False)
-    amount = Column(Integer, nullable=False)
-    paid = Column(Boolean, nullable=False, default=False)
+    payment_id = Column(Integer, primary_key=True)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey('users.user_id', ondelete="CASCADE"), 
+        nullable=False
+    )
+    order_id = Column(
+        UUID(as_uuid=True), 
+        ForeignKey('orders.order_id', ondelete="CASCADE"), 
+        nullable=False
+    )
 
     def to_dict(self):
        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
@@ -26,12 +38,19 @@ class User(Base):
 
     user_id = Column(UUID(as_uuid=True), primary_key=True)
     credit = Column(Integer, nullable=False, default=0)
-    fk_orders = relationship(
+    fk_order_ids = relationship(
         "Order",
-        cascade="all, delete", # if there are children present in the session as the User object, then mark all of them for deletion
+        # cascade="all, delete", # if there are orders loaded with the associated user in a session, then DELETE query is emitted for each of the orders (deletion on ORM side)
         passive_deletes=True, # defers the deletion of children to the database
         backref='users', # any changes to the order objects is reflected back to the corresponding user object and vice versa (efficiency)
-        cascade_backrefs=False # avoids headache and confusion
+        cascade_backrefs=False
+    )
+    fk_payment_ids = relationship(
+        "Payment",
+        # cascade="all, delete", 
+        passive_deletes=True,
+        backref='users',
+        cascade_backrefs=False
     )
 
     def to_dict(self):
@@ -43,15 +62,27 @@ class Order(Base):
     __tablename__ = 'orders'
 
     order_id = Column(UUID(as_uuid=True), primary_key=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey('users.user_id', ondelete="CASCADE"))
-    fk_order_item_id = relationship(
+    user_id = Column(
+        UUID(as_uuid=True), 
+        ForeignKey('users.user_id', ondelete="CASCADE"), 
+        nullable=False
+    )
+    paid = Column(Boolean, nullable=False, default=False)
+    fk_item_ids = relationship(
         "Cart",
-        cascade="all, delete",
-        passive_deletes=True, 
+        # cascade="all, delete",
+        passive_deletes=True,
         backref='orders',
         cascade_backrefs=False
     )
-
+    fk_payment_ids_order = relationship(
+        "Payment",
+        # cascade="all, delete",
+        passive_deletes=True,
+        backref='orders',
+        cascade_backrefs=False
+    )
+    
     def to_dict(self):
        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
@@ -62,7 +93,11 @@ class Cart(Base):
 
     id = Column(Integer, primary_key=True)
     item_id = Column(UUID(as_uuid=True), nullable=False)
-    order_id = Column(UUID(as_uuid=True), ForeignKey('orders.order_id', ondelete="CASCADE"))
+    order_id = Column(
+        UUID(as_uuid=True), 
+        ForeignKey('orders.order_id', ondelete="CASCADE"), 
+        nullable=False
+    )
 
     def to_dict(self):
        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
