@@ -27,7 +27,6 @@ class Payment(Base):
         ForeignKey('orders.order_id', ondelete="CASCADE"), 
         nullable=False
     )
-    paid = Column(Boolean, nullable=False, default=False)
     amount = Column(Integer, nullable=False)
     
     def to_dict(self):
@@ -69,6 +68,7 @@ class Order(Base):
         ForeignKey('users.user_id', ondelete="CASCADE"), 
         nullable=False
     )
+    paid = Column(Boolean, nullable=False, default=False)
     fk_item_ids = relationship(
         "Cart",
         # cascade="all, delete",

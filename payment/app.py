@@ -132,13 +132,26 @@ def remove_credit(user_id: str, order_id: str, amount: int):
 
 def cancel_payment_helper(session, user_id, order_id):
     user = session.query(User).filter(User.user_id == user_id).one()
+    order = session.query(Order).filter(
+        Order.order_id == order_id,
+        Order.user_id == user_id
+    ).one()
     payment = session.query(Payment).filter(
         Payment.user_id == user_id,
         Payment.order_id == order_id
-    ).first()
-    if payment.paid:
-        payment.paid = False
+    ).one()
+
+    # Only add amount of payment to the user if the order is paid already
+    if order.paid:
+        order.paid = False
         user.credit += payment.amount
+    
+    print(session.query(Payment).filter(
+        Payment.user_id == user_id,
+        Payment.order_id == order_id
+    ).delete())
+    
+
     
 @app.post('/cancel/<user_id>/<order_id>')
 def cancel_payment(user_id: str, order_id: str):
@@ -155,27 +168,24 @@ def cancel_payment(user_id: str, order_id: str):
 
 
 def status_helper(session, user_id, order_id):
-    payment = session \
+    payment_paid = session \
         .query(Payment) \
         .filter(
             Payment.user_id == user_id, # and
             Payment.order_id == order_id
-        ).one()
-    return payment.paid
+        ).first()
+    return payment_paid
 
 @app.post('/status/<user_id>/<order_id>')
 def payment_status(user_id: str, order_id: str):
-    try:
-        ret_paid = run_transaction(
-            sessionmaker(bind=engine), 
-            lambda s: status_helper(s, user_id, order_id)
-        )
+    ret_paid = run_transaction(
+        sessionmaker(bind=engine, expire_on_commit=False), 
+        lambda s: status_helper(s, user_id, order_id)
+    )
+    if ret_paid:
         return jsonify(paid=ret_paid)
-    except NoResultFound:
-        return "No payment was found", 400
-    except MultipleResultsFound:
-        return "Multiple payments were found while one is expected", 400
-
+    else:
+        return jsonify(paid=False)
 
 # TODO: delete main when testing is finalized
 def main():
