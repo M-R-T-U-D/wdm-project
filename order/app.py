@@ -14,9 +14,6 @@ from flask import Flask, jsonify
 sys.path.append("../")
 from orm_models.models import Order, Cart, Base
 
-
-gateway_url = os.environ['GATEWAY_URL']
-
 app = Flask("order-service")
 
 DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
@@ -111,7 +108,7 @@ def find_order(order_id):
         )
 
         if ret_user_order and ret_order_items:
-            status = requests.post(f"http://localhost:8081/status/{ret_user_order.user_id}/{order_id}").json()['paid']
+            status = requests.post(f"http://localhost:8083/status/{ret_user_order.user_id}/{order_id}").json()['paid']
             items = []
             total_cost = 0
             for order_item in ret_order_items:
@@ -137,8 +134,8 @@ def find_order(order_id):
 @app.post('/checkout/<order_id>')
 def checkout(order_id):
     try:
+        print(requests.post(f"http://localhost:8083/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}").status_code)
         ret_order = find_order(order_id)
-        print(requests.post(f"http://localhost:8081/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}").status_code)
         for item_id in ret_order['items']:
             print(requests.post(f"http://localhost:8081/subtract/{item_id}/1").status_code)
         return 'success', 200
