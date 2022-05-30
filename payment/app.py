@@ -94,25 +94,20 @@ def add_credit(user_id: str, amount: int):
 
 def pay_helper(session, user_id, order_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
-    existing_payment = session.query(Payment).filter(
-        Payment.user_id == user_id,
-        Payment.order_id == order_id
-    ).first()
+    order = session.query(Order).filter(
+        Order.user_id == user_id,
+        Order.order_id == order_id
+    ).one()
 
-    if existing_payment:
-        if not existing_payment.paid:
-                if user.credit >= amount:
-                    user.credit -= amount
-                    existing_payment.paid = True
-                else:
-                    raise NotEnoughCreditException()
-    else:
-        if user.credit >= amount:
-            user.credit -= amount
-        else:
-            raise NotEnoughCreditException()
-        new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount, paid=True)
-        session.add(new_payment)
+    if not order.paid:
+            if user.credit >= amount:
+                user.credit -= amount
+                order.paid = True
+                new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount)
+                session.add(new_payment)
+            else:
+                raise NotEnoughCreditException()
+        
 
     
 @app.post('/pay/<user_id>/<order_id>/<int:amount>')
@@ -124,9 +119,9 @@ def remove_credit(user_id: str, order_id: str, amount: int):
         )
         return '', 200
     except NoResultFound:
-        return "No user or payment was found", 400
+        return "No user or order was found", 400
     except MultipleResultsFound:
-        return "Multiple users or payments were found while one is expected", 400
+        return "Multiple users or order were found while one is expected", 400
     except NotEnoughCreditException as e:
         return str(e), 400
 
