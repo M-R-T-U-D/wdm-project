@@ -7,6 +7,7 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from werkzeug.exceptions import HTTPException
 import uuid
 
+import json
 import requests
 from flask import Flask, jsonify
 
@@ -51,6 +52,7 @@ def remove_order_helper(session, order_id):
 
 @app.delete('/remove/<order_id>')
 def remove_order(order_id):
+    #TODO: Add stocks back to their state before order.
     try:
         run_transaction(
             sessionmaker(bind=engine),
@@ -82,6 +84,7 @@ def remove_order_item_helper(session, order_id, item_id):
 
 @app.delete('/removeItem/<order_id>/<item_id>')
 def remove_item(order_id, item_id):
+    #TODO: Add stocks back to their state before the add of the item.
     try:
         run_transaction(
             sessionmaker(bind=engine),
@@ -134,12 +137,13 @@ def find_order(order_id):
 @app.post('/checkout/<order_id>')
 def checkout(order_id):
     try:
+        ret_order = json.loads(find_order(order_id)[0].get_data(as_text=True))
         print(requests.post(f"http://localhost:8083/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}").status_code)
-        ret_order = find_order(order_id)
         for item_id in ret_order['items']:
             print(requests.post(f"http://localhost:8081/subtract/{item_id}/1").status_code)
         return 'success', 200
-    except Exception:
+    except Exception as e:
+        print(e)
         return 'failure', 400
 
 # TODO: delete main when testing is finalized

@@ -126,6 +126,7 @@ def remove_credit(user_id: str, order_id: str, amount: int):
         return str(e), 400
 
 def cancel_payment_helper(session, user_id, order_id):
+    #TODO: Add stocks back to their state before payment.
     user = session.query(User).filter(User.user_id == user_id).one()
     order = session.query(Order).filter(
         Order.order_id == order_id,
@@ -178,7 +179,7 @@ def payment_status(user_id: str, order_id: str):
         lambda s: status_helper(s, user_id, order_id)
     )
     if ret_paid:
-        return jsonify(paid=ret_paid)
+        return jsonify(paid=True)
     else:
         return jsonify(paid=False)
 
