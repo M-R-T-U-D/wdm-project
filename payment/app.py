@@ -7,6 +7,7 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from werkzeug.exceptions import HTTPException
 import uuid
 
+import requests
 from flask import Flask, jsonify
 
 # NOTE: make sure to run this app.py from this folder, so python app.py so that models are also read correctly from root
@@ -126,7 +127,6 @@ def remove_credit(user_id: str, order_id: str, amount: int):
         return str(e), 400
 
 def cancel_payment_helper(session, user_id, order_id):
-    #TODO: Add stocks back to their state before payment.
     user = session.query(User).filter(User.user_id == user_id).one()
     order = session.query(Order).filter(
         Order.order_id == order_id,
@@ -141,6 +141,9 @@ def cancel_payment_helper(session, user_id, order_id):
     if order.paid:
         order.paid = False
         user.credit += payment.amount
+        item_ids = requests.get(f"http://localhost:8082/find/{order_id}").json()['items']
+        for item_id in item_ids:
+            requests.post(f"http://localhost:8081/add/{item_id}/1")
     
     print(session.query(Payment).filter(
         Payment.user_id == user_id,
