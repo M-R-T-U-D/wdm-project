@@ -13,14 +13,17 @@ from flask import Flask, jsonify
 
 # NOTE: make sure to run this app.py from this folder, so python app.py so that models are also read correctly from root
 sys.path.append("../")
-from orm_models.models import Order, Cart, Base
+from orm_models.models import Order, Cart
+
+gateway_url = os.environ['GATEWAY_URL']
+datebase_url = os.environ['DATABASE_URL']
 
 app = Flask("order-service")
 
-DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
+# DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
 
 try:
-    engine = create_engine(DATABASE_URL, echo=True)
+    engine = create_engine(datebase_url)
 except Exception as e:
     print("Failed to connect to database.")
     print(f"{e}")
@@ -109,11 +112,13 @@ def find_order(order_id):
         )
 
         if ret_user_order and ret_order_items:
-            status = requests.post(f"http://localhost:8083/status/{ret_user_order.user_id}/{order_id}").json()['paid']
+            # status = requests.post(f"http://localhost:8083/status/{ret_user_order.user_id}/{order_id}").json()['paid']
+            status = requests.post(f"{gateway_url}/payment/status/{ret_user_order.user_id}/{order_id}").json()['paid']
             items = []
             total_cost = 0
             for order_item in ret_order_items:
-                stock_price = requests.get(f"http://localhost:8081/find/{order_item.item_id}").json()['price']
+                # stock_price = requests.get(f"http://localhost:8081/find/{order_item.item_id}").json()['price']
+                stock_price = requests.get(f"{gateway_url}/stock/find/{order_item.item_id}").json()['price']
                 total_cost += stock_price
                 items.append(order_item.item_id)
             return jsonify(
@@ -135,22 +140,22 @@ def find_order(order_id):
 @app.post('/checkout/<order_id>')
 def checkout(order_id):
     try:
-        
         ret_order = json.loads(find_order(order_id)[0].get_data(as_text=True))
         status_before = ret_order['paid']
-        print(requests.post(f"http://localhost:8083/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}").status_code)
+        # print(requests.post(f"http://localhost:8083/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}").status_code)
+        requests.post(f"{gateway_url}/payment/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
         if not status_before:
             for item_id in ret_order['items']:
-                print(requests.post(f"http://localhost:8081/subtract/{item_id}/1").status_code)
+                # print(requests.post(f"http://localhost:8081/subtract/{item_id}/1").status_code)
+                requests.post(f"{gateway_url}/stock/subtract/{item_id}/1")
         return 'success', 200
     except Exception as e:
         print(e)
         return 'failure', 400
 
-# TODO: delete main when testing is finalized
-def main():
-    Base.metadata.create_all(bind=engine, checkfirst=True)
-    app.run(host="0.0.0.0", port=8082, debug=True)
+# def main():
+#     Base.metadata.create_all(bind=engine, checkfirst=True)
+#     app.run(host="0.0.0.0", port=8082, debug=True)
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

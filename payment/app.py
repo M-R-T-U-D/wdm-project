@@ -12,24 +12,21 @@ from flask import Flask, jsonify
 
 # NOTE: make sure to run this app.py from this folder, so python app.py so that models are also read correctly from root
 sys.path.append("../")
-from orm_models.models import Order, Payment, User, Cart, Base 
+from orm_models.models import Order, Payment, User
+
+gateway_url = os.environ['GATEWAY_URL']
+datebase_url = os.environ['DATABASE_URL']
 
 app = Flask("payment-service")
 
-DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
+# DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
 
 # Create engine to connect to the database
 try:
-    engine = create_engine(DATABASE_URL, echo=True)
+    engine = create_engine(datebase_url)
 except Exception as e:
     print("Failed to connect to database.")
     print(f"{e}")
-
-# @app.errorhandler(HTTPException)
-# def handle_http_exception(e: HTTPException):
-#     """Return JSON for HTTP errors."""
-#     print(e.get_response())
-#     return jsonify(error=400)
 
 # Catch all unhandled exceptions
 @app.errorhandler(Exception)
@@ -141,9 +138,11 @@ def cancel_payment_helper(session, user_id, order_id):
     if order.paid:
         order.paid = False
         user.credit += payment.amount
-        item_ids = requests.get(f"http://localhost:8082/find/{order_id}").json()['items']
+        # item_ids = requests.get(f"http://localhost:8082/find/{order_id}").json()['items']
+        item_ids = requests.get(f"{gateway_url}/orders/find/{order_id}").json()['items']
         for item_id in item_ids:
-            requests.post(f"http://localhost:8081/add/{item_id}/1")
+            # requests.post(f"http://localhost:8081/add/{item_id}/1")
+            requests.post(f"{gateway_url}/stock/add/{item_id}/1")
     
     print(session.query(Payment).filter(
         Payment.user_id == user_id,
@@ -186,10 +185,9 @@ def payment_status(user_id: str, order_id: str):
     else:
         return jsonify(paid=False)
 
-# TODO: delete main when testing is finalized
-def main():
-    Base.metadata.create_all(bind=engine, checkfirst=True)
-    app.run(host="0.0.0.0", port=8083, debug=True)
+# def main():
+#     Base.metadata.create_all(bind=engine, checkfirst=True)
+#     app.run(host="0.0.0.0", port=8083, debug=True)
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()

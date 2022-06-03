@@ -11,15 +11,17 @@ from flask import Flask, jsonify
 
 # NOTE: make sure to run this app.py from this folder, so python app.py so that models are also read correctly from root
 sys.path.append("../")
-from orm_models.models import Stock, Base
+from orm_models.models import Stock
+
+gateway_url = os.environ['GATEWAY_URL']
+datebase_url = os.environ['DATABASE_URL']
 
 app = Flask("stock-service")
 
-# TODO: Read db url from env variable instead of hardcoding here 
-DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
+# DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
 
 try:
-    engine = create_engine(DATABASE_URL, echo=True)
+    engine = create_engine(datebase_url)
 except Exception as e:
     print("Failed to connect to database.")
     print(f"{e}")
@@ -109,10 +111,9 @@ def remove_stock(item_id: str, amount: int):
     except NotEnoughStockException as e:
         return str(e), 400
 
-# TODO: delete main when testing is finalized
-def main():
-    Base.metadata.create_all(bind=engine, checkfirst=True)
-    app.run(host="0.0.0.0", port=8081, debug=True)
+# def main():
+#     Base.metadata.create_all(bind=engine, checkfirst=True)
+#     app.run(host="0.0.0.0", port=8081, debug=True)
 
-if __name__ == '__main__':
-    main()
+# if __name__ == '__main__':
+#     main()
