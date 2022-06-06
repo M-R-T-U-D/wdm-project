@@ -13,7 +13,6 @@ from flask import Flask, jsonify
 sys.path.append("../")
 from orm_models.models import Stock
 
-gateway_url = os.environ['GATEWAY_URL']
 datebase_url = os.environ['DATABASE_URL']
 
 app = Flask("stock-service")

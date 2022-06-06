@@ -14,8 +14,8 @@ services:
     environment:
       - GATEWAY_URL=http://gateway:80
     command: gunicorn -b 0.0.0.0:5000 app:app
-    env_file:
-      - env/order_redis.env
+    # env_file:
+    #   - env/order_redis.env
 
   order-db:
     image: redis:latest
@@ -25,8 +25,8 @@ services:
     build: ./stock
     image: stock:latest
     command: gunicorn -b 0.0.0.0:5000 app:app
-    env_file:
-      - env/stock_redis.env
+    # env_file:
+    #   - env/stock_redis.env
 
   stock-db:
     image: redis:latest
@@ -34,10 +34,10 @@ services:
 
   payment-service:
     build: ./payment
-    image: user:latest
+    image: payment:latest
     command: gunicorn -b 0.0.0.0:5000 app:app
-    env_file:
-      - env/payment_redis.env
+    # env_file:
+    #   - env/payment_redis.env
 
   payment-db:
     image: redis:latest
