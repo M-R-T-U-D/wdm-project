@@ -14,7 +14,8 @@ from flask import Flask, jsonify
 sys.path.append("../")
 from orm_models.models import Order, Payment, User
 
-gateway_url = os.environ['GATEWAY_URL']
+stock_url = os.environ['STOCK_URL']
+order_url = os.environ['ORDER_URL']
 datebase_url = os.environ['DATABASE_URL']
 
 app = Flask("payment-service")
@@ -139,10 +140,10 @@ def cancel_payment_helper(session, user_id, order_id):
         order.paid = False
         user.credit += payment.amount
         # item_ids = requests.get(f"http://localhost:8082/find/{order_id}").json()['items']
-        item_ids = requests.get(f"{gateway_url}/orders/find/{order_id}").json()['items']
+        item_ids = requests.get(f"{order_url}/orders/find/{order_id}").json()['items']
         for item_id in item_ids:
             # requests.post(f"http://localhost:8081/add/{item_id}/1")
-            requests.post(f"{gateway_url}/stock/add/{item_id}/1")
+            requests.post(f"{stock_url}/stock/add/{item_id}/1")
     
     print(session.query(Payment).filter(
         Payment.user_id == user_id,

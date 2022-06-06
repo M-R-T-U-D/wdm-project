@@ -40,3 +40,10 @@ spec:
           args: ["-b", "0.0.0.0:5000", "app:app"]
           ports:
             - containerPort: 5000
+          env:
+            - name: STOCK_URL
+              value: "http://stock-service:5000"
+            - name: ORDER_URL
+              value: "http://order-service:5000"
+            - name: DATABASE_URL
+              value: "cockroachdb://database-service:26257"

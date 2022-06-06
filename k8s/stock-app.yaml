@@ -40,3 +40,6 @@ spec:
           args: ["-b", "0.0.0.0:5000", "app:app"]
           ports:
             - containerPort: 5000
+          env:
+            - name: DATABASE_URL
+              value: "cockroachdb://database-service:26257"
