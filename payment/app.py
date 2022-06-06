@@ -140,10 +140,10 @@ def cancel_payment_helper(session, user_id, order_id):
         order.paid = False
         user.credit += payment.amount
         # item_ids = requests.get(f"http://localhost:8082/find/{order_id}").json()['items']
-        item_ids = requests.get(f"{order_url}/orders/find/{order_id}").json()['items']
+        item_ids = requests.get(f"{order_url}/find/{order_id}").json()['items']
         for item_id in item_ids:
             # requests.post(f"http://localhost:8081/add/{item_id}/1")
-            requests.post(f"{stock_url}/stock/add/{item_id}/1")
+            requests.post(f"{stock_url}/add/{item_id}/1")
     
     print(session.query(Payment).filter(
         Payment.user_id == user_id,

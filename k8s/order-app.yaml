@@ -46,4 +46,4 @@ spec:
             - name: PAYMENT_URL
               value: "http://payment-service:5000"
             - name: DATABASE_URL
-              value: "cockroachdb://database-service:26257"
+              value: "cockroachdb://database-service:26257/defaultdb?sslmode=disable"

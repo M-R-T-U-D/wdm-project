@@ -114,12 +114,12 @@ def find_order(order_id):
 
         if ret_user_order and ret_order_items:
             # status = requests.post(f"http://localhost:8083/status/{ret_user_order.user_id}/{order_id}").json()['paid']
-            status = requests.post(f"{payment_url}/payment/status/{ret_user_order.user_id}/{order_id}").json()['paid']
+            status = requests.post(f"{payment_url}/status/{ret_user_order.user_id}/{order_id}").json()['paid']
             items = []
             total_cost = 0
             for order_item in ret_order_items:
                 # stock_price = requests.get(f"http://localhost:8081/find/{order_item.item_id}").json()['price']
-                stock_price = requests.get(f"{stock_url}/stock/find/{order_item.item_id}").json()['price']
+                stock_price = requests.get(f"{stock_url}/find/{order_item.item_id}").json()['price']
                 total_cost += stock_price
                 items.append(order_item.item_id)
             return jsonify(
@@ -144,11 +144,11 @@ def checkout(order_id):
         ret_order = json.loads(find_order(order_id)[0].get_data(as_text=True))
         status_before = ret_order['paid']
         # print(requests.post(f"http://localhost:8083/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}").status_code)
-        requests.post(f"{payment_url}/payment/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
+        requests.post(f"{payment_url}/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
         if not status_before:
             for item_id in ret_order['items']:
                 # print(requests.post(f"http://localhost:8081/subtract/{item_id}/1").status_code)
-                requests.post(f"{stock_url}/stock/subtract/{item_id}/1")
+                requests.post(f"{stock_url}/subtract/{item_id}/1")
         return 'success', 200
     except Exception as e:
         print(e)

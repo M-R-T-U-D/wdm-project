@@ -14,7 +14,7 @@ services:
     environment:
       - STOCK_URL=http://stock-service:5000
       - PAYMENT_URL=http://payment-service:5000
-      - DATABASE_URL=cockroachdb://database-service:26257
+      - DATABASE_URL=cockroachdb://database-service:26257/defaultdb?sslmode=disable
     command: gunicorn -b 0.0.0.0:5000 app:app
     # env_file:
     #   - env/order_redis.env
@@ -27,7 +27,7 @@ services:
     build: ./stock
     image: stock:latest
     environment:
-      - DATABASE_URL=cockroachdb://database-service:26257
+      - DATABASE_URL=cockroachdb://database-service:26257/defaultdb?sslmode=disable
     command: gunicorn -b 0.0.0.0:5000 app:app
     # env_file:
     #   - env/stock_redis.env
@@ -42,7 +42,7 @@ services:
     environment:
       - STOCK_URL=http://stock-service:5000
       - ORDER_URL=http://order-service:5000
-      - DATABASE_URL=cockroachdb://database-service:26257
+      - DATABASE_URL=cockroachdb://database-service:26257/defaultdb?sslmode=disable
     command: gunicorn -b 0.0.0.0:5000 app:app
     # env_file:
     #   - env/payment_redis.env
