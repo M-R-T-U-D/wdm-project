@@ -42,4 +42,4 @@ spec:
             - containerPort: 5000
           env:
             - name: DATABASE_URL
-              value: "cockroachdb://database-service:26257/defaultdb?sslmode=disable"
+              value: "cockroachdb://root@cockroachdb-client-secure:26257/defaultdb"
