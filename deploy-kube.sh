@@ -2,31 +2,39 @@
 
 minikube start
 
-cd k8s/cockroachdb
-kubectl apply -f crds.yaml
+eval $(minikube -p minikube docker-env)
 
-sleep 30
+cd order
+docker build . -t order
+cd ../payment
+docker build . -t payment
+cd ../stock
+docker build . -t stock
 
-kubectl apply -f operator.yaml
+cd ../k8s/cockroachdb
+minikube kubectl -- apply -f crds.yaml
 
-sleep 30
+minikube kubectl -- apply -f operator.yaml
 
-kubectl apply -f example.yaml
+sleep 50
 
-sleep 30
+minikube kubectl -- apply -f example.yaml
 
-kubectl apply -f client-secure-operator.yaml
+sleep 60
 
-sleep 30
+minikube kubectl -- apply -f client-secure-operator.yaml
 
-kubectl apply -f .
+sleep 40
 
-sleep 30
+cd ..
 
-cd ../..
+minikube kubectl -- apply -f haproxyIngress.yaml
+minikube kubectl -- apply -f ingress-service.yaml
+minikube kubectl -- apply -f order-app.yaml
+minikube kubectl -- apply -f payment-app.yaml
+minikube kubectl -- apply -f stock-app.yaml
 
-# kubectl exec -it cockroachdb-client-secure \
-# -- ./cockroach sql \
-# --certs-dir=/cockroach/cockroach-certs \
-# --host=cockroachdb-public
 
+cd ..
+
+cat dbinit.sql | minikube kubectl -- exec -it --namespace=default cockroachdb-client-secure -- ./cockroach sql --certs-dir=/cockroach/cockroach-certs --host=cockroachdb-public
