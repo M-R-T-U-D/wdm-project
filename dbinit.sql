@@ -1,3 +1,16 @@
+CREATE TABLE users
+(
+  user_id UUID PRIMARY KEY,
+  credit INTEGER DEFAULT 0 NOT NULL
+);
+
+CREATE TABLE stocks
+(
+  item_id UUID PRIMARY KEY,
+  stock INTEGER NOT NULL,
+  price INTEGER NOT NULL
+);
+
 CREATE TABLE orders
 (
   order_id UUID PRIMARY KEY,
@@ -36,15 +49,3 @@ CREATE TABLE payments
         ON DELETE CASCADE
 );
 
-CREATE TABLE stocks
-(
-  item_id UUID PRIMARY KEY,
-  stock INTEGER NOT NULL,
-  price INTEGER NOT NULL
-);
-
-CREATE TABLE users
-(
-  user_id UUID PRIMARY KEY,
-  credit INTEGER DEFAULT 0 NOT NULL
-);
