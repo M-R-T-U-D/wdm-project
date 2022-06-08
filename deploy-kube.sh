@@ -32,12 +32,12 @@ minikube kubectl -- apply -f crds.yaml
 
 minikube kubectl -- apply -f operator.yaml
 
-sleep 65
+sleep 70
 # minikube kubectl -- wait --for=condition=ready -n cockroach-operator-system --all deployments
 
 minikube kubectl -- apply -f example.yaml
 
-sleep 45
+sleep 75
 # minikube kubectl -- wait --for=condition=ready -n default --all statefulsets
 
 minikube kubectl -- apply -f client-secure-operator.yaml
