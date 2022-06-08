@@ -54,4 +54,4 @@ minikube kubectl -- apply -f stock-app.yaml
 
 cd ..
 
-cat dbinit.sql | minikube kubectl -- exec -i --namespace=default cockroachdb-client-secure -- ./cockroach sql --certs-dir=/cockroach/cockroach-certs --host=cockroachdb-public
+cat dbinit.sql | minikube kubectl -- exec -i --namespace=default cockroachdb-client-secure -- ./cockroach sql --certs-dir=cockroach-certs --host=cockroachdb-public
