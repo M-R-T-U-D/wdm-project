@@ -145,13 +145,16 @@ def checkout(order_id):
         status_before = ret_order['paid']
         # print(requests.post(f"http://localhost:8083/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}").status_code)
         requests.post(f"{payment_url}/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
+        # if payment_resp.status_code >= 400:
+        #     return payment_resp, 400
         if not status_before:
             for item_id in ret_order['items']:
                 # print(requests.post(f"http://localhost:8081/subtract/{item_id}/1").status_code)
                 requests.post(f"{stock_url}/subtract/{item_id}/1")
+                # if stock_resp.status_code >= 400:
+                #     return 'failure', 400
         return 'success', 200
-    except Exception as e:
-        print(e)
+    except Exception:
         return 'failure', 400
 
 # def main():

@@ -16,7 +16,7 @@ class Payment(Base):
     """
     __tablename__ = 'payments'
 
-    payment_id = Column(Integer, primary_key=True)
+    payment_id = Column(Integer, autoincrement=True, primary_key=True)
     user_id = Column(
         UUID(as_uuid=True),
         ForeignKey('users.user_id', ondelete="CASCADE"), 
@@ -92,7 +92,7 @@ class Cart(Base):
     """
     __tablename__ = 'carts'
 
-    id = Column(Integer, primary_key=True)
+    id = Column(Integer, autoincrement=True, primary_key=True)
     item_id = Column(UUID(as_uuid=True), nullable=False)
     order_id = Column(
         UUID(as_uuid=True), 

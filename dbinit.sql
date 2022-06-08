@@ -15,6 +15,7 @@ CREATE TABLE orders
 (
   order_id UUID PRIMARY KEY,
   user_id UUID NOT NULL,
+  paid BOOLEAN DEFAULT FALSE NOT NULL,
   CONSTRAINT fk_user_order_id
       FOREIGN KEY(user_id)
 	    REFERENCES users(user_id)
@@ -23,7 +24,7 @@ CREATE TABLE orders
 
 CREATE TABLE carts
 (
-  id INTEGER PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   item_id UUID NOT NULL,
   order_id UUID NOT NULL,
   CONSTRAINT fk_order_item_id
@@ -34,11 +35,10 @@ CREATE TABLE carts
 
 CREATE TABLE payments
 (
-  payment_id INTEGER PRIMARY KEY,
+  payment_id BIGSERIAL PRIMARY KEY,
   user_id UUID NOT NULL,
   order_id UUID NOT NULL,
   amount INTEGER NOT NULL,
-  paid BOOLEAN DEFAULT FALSE NOT NULL,
   CONSTRAINT fk_user_payment_id
       FOREIGN KEY(user_id)
 	    REFERENCES users(user_id)
@@ -49,3 +49,6 @@ CREATE TABLE payments
         ON DELETE CASCADE
 );
 
+CREATE USER test
+WITH PASSWORD 'test';
+GRANT admin TO test;

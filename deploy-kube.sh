@@ -21,11 +21,11 @@ minikube start
 eval $(minikube -p minikube docker-env)
 
 cd order
-docker build . -t order
+docker build . -t order --no-cache
 cd ../payment
-docker build . -t payment
+docker build . -t payment --no-cache
 cd ../stock
-docker build . -t stock
+docker build . -t stock --no-cache
 
 cd ../k8s/cockroachdb
 minikube kubectl -- apply -f crds.yaml

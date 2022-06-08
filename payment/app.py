@@ -99,13 +99,13 @@ def pay_helper(session, user_id, order_id, amount):
     ).one()
 
     if not order.paid:
-            if user.credit >= amount:
-                user.credit -= amount
-                order.paid = True
-                new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount)
-                session.add(new_payment)
-            else:
-                raise NotEnoughCreditException()
+        if user.credit >= amount:
+            user.credit -= amount
+            order.paid = True
+            new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount)
+            session.add(new_payment)
+        else:
+            raise NotEnoughCreditException()
         
 
     
@@ -118,11 +118,11 @@ def remove_credit(user_id: str, order_id: str, amount: int):
         )
         return '', 200
     except NoResultFound:
-        return "No user or order was found", 400
+        return "No user or order was found", 401
     except MultipleResultsFound:
-        return "Multiple users or order were found while one is expected", 400
+        return "Multiple users or order were found while one is expected", 402
     except NotEnoughCreditException as e:
-        return str(e), 400
+        return str(e), 403
 
 def cancel_payment_helper(session, user_id, order_id):
     user = session.query(User).filter(User.user_id == user_id).one()
