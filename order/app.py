@@ -43,7 +43,6 @@ def handle_exception(e):
 
 
 
-
 @app.post('/create/<user_id>')
 def create_order(user_id):
     order_uuid = uuid.uuid4()
@@ -64,6 +63,39 @@ def remove_order(order_id):
         return '', 200
     except Exception:
         return "Something went wrong", 400
+
+def cancel_order_helper(session, user_id, order_id):
+    order = session.query(Order).filter(
+        Order.order_id == order_id,
+        Order.user_id == user_id
+    ).one()
+    order.paid = False
+
+@app.post('/cancel_order/<user_id>/<order_id>')
+def cancel_order(user_id: str, order_id: str):
+    run_transaction(
+        sessionmaker(bind=engine),
+        lambda s: cancel_order_helper(s, user_id, order_id)
+    )
+    item_ids = json.loads(find_order(order_id)[0].get_data(as_text=True))
+    for item_id in item_ids:
+        requests.post(f"{stock_url}/add/{item_id}/1") 
+    return '', 200
+
+def pay_order_helper(session, user_id, order_id):
+    order = session.query(Order).filter(
+        Order.order_id == order_id,
+        Order.user_id == user_id
+    ).one()
+    order.paid = True
+
+@app.post('/pay_order/<user_id>/<order_id>')
+def pay_order(user_id: str, order_id: str):
+    run_transaction(
+        sessionmaker(bind=engine),
+        lambda s: pay_order_helper(s, user_id, order_id)
+    )
+    return '', 200
 
 def add_item_order_helper(session, order_id, item_id):
     new_item_order = Cart(item_id=item_id, order_id=order_id)

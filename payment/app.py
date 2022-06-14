@@ -93,15 +93,12 @@ def add_credit(user_id: str, amount: int):
 
 def pay_helper(session, user_id, order_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
-    order = session.query(Order).filter(
-        Order.user_id == user_id,
-        Order.order_id == order_id
-    ).one()
 
-    if not order.paid:
+    order_info = requests.get(f"{order_url}/find/{order_id}").json()
+    if not order_info.paid:
         if user.credit >= amount:
             user.credit -= amount
-            order.paid = True
+            requests.post(f'{order_url}/pay_order/{user_id}/{order_id}')
             new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount)
             session.add(new_payment)
         else:
@@ -126,24 +123,16 @@ def remove_credit(user_id: str, order_id: str, amount: int):
 
 def cancel_payment_helper(session, user_id, order_id):
     user = session.query(User).filter(User.user_id == user_id).one()
-    order = session.query(Order).filter(
-        Order.order_id == order_id,
-        Order.user_id == user_id
-    ).one()
+    order_info = requests.get(f"{order_url}/find/{order_id}").json()
     payment = session.query(Payment).filter(
         Payment.user_id == user_id,
         Payment.order_id == order_id
     ).one()
 
     # Only add amount of payment to the user if the order is paid already
-    if order.paid:
-        order.paid = False
+    if order_info.paid:
+        requests.post(f'{order_url}/cancel_order/{user_id}/{order_id}')
         user.credit += payment.amount
-        # item_ids = requests.get(f"http://localhost:8082/find/{order_id}").json()['items']
-        item_ids = requests.get(f"{order_url}/find/{order_id}").json()['items']
-        for item_id in item_ids:
-            # requests.post(f"http://localhost:8081/add/{item_id}/1")
-            requests.post(f"{stock_url}/add/{item_id}/1")
     
     print(session.query(Payment).filter(
         Payment.user_id == user_id,
@@ -151,7 +140,6 @@ def cancel_payment_helper(session, user_id, order_id):
     ).delete())
     
 
-    
 @app.post('/cancel/<user_id>/<order_id>')
 def cancel_payment(user_id: str, order_id: str):
     try:
