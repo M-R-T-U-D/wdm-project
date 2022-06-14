@@ -55,3 +55,9 @@ minikube kubectl -- apply -f stock-app.yaml
 cd ..
 
 cat dbinit.sql | minikube kubectl -- exec -i --namespace=default cockroachdb-client-secure -- ./cockroach sql --certs-dir=cockroach-certs --host=cockroachdb-public
+
+# Enable ingress controller
+minikube addons enable ingress
+
+# Port forward the ingress nginx controller to localhost:8080 on host
+kubectl port-forward --namespace=ingress-nginx service/ingress-nginx-controller 8080:80

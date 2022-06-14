@@ -48,14 +48,8 @@ Similarly to the `minikube` deployment but run the `deploy-charts-cluster.sh` in
 
 #### Deploy DB, services and Ingress controller
 
-Run script for deploying the db operator (statefulsets), db nodes and services into minikube/kubernetes:
+Run script for deploying the db operator (statefulsets), db nodes and services into minikube/kubernetes. This also enables ingress addon in minikube and port-forward it to port 8080:
 
 ```
 source ./deploy-kube.sh
-```
-
-Enable ingress addon in minikube and port-forward it to port 8080
-
-```
-source ./ingress-controller-minikube.sh
 ```
