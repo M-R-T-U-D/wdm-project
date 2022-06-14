@@ -113,12 +113,10 @@ def find_order(order_id):
         )
 
         if ret_user_order and ret_order_items:
-            # status = requests.post(f"http://localhost:8083/status/{ret_user_order.user_id}/{order_id}").json()['paid']
             status = requests.post(f"{payment_url}/status/{ret_user_order.user_id}/{order_id}").json()['paid']
             items = []
             total_cost = 0
             for order_item in ret_order_items:
-                # stock_price = requests.get(f"http://localhost:8081/find/{order_item.item_id}").json()['price']
                 stock_price = requests.get(f"{stock_url}/find/{order_item.item_id}").json()['price']
                 total_cost += stock_price
                 items.append(order_item.item_id)
@@ -143,16 +141,10 @@ def checkout(order_id):
     try:
         ret_order = json.loads(find_order(order_id)[0].get_data(as_text=True))
         status_before = ret_order['paid']
-        # print(requests.post(f"http://localhost:8083/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}").status_code)
         requests.post(f"{payment_url}/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
-        # if payment_resp.status_code >= 400:
-        #     return payment_resp, 400
         if not status_before:
             for item_id in ret_order['items']:
-                # print(requests.post(f"http://localhost:8081/subtract/{item_id}/1").status_code)
                 requests.post(f"{stock_url}/subtract/{item_id}/1")
-                # if stock_resp.status_code >= 400:
-                #     return 'failure', 400
         return 'success', 200
     except Exception:
         return 'failure', 400
