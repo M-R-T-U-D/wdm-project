@@ -13,7 +13,7 @@ from flask import Flask, jsonify
 
 # NOTE: make sure to run this app.py from this folder, so python app.py so that models are also read correctly from root
 sys.path.append("../")
-from orm_models.models import Order, Cart
+from orm_models.models import Order, Cart, User
 
 stock_url = os.environ['STOCK_URL']
 payment_url = os.environ['PAYMENT_URL']
@@ -167,7 +167,6 @@ def find_order(order_id):
         return "Multiple user_orders were found while one is expected", 400
 
 
-
 @app.post('/checkout/<order_id>')
 def checkout(order_id):
     try:
@@ -178,6 +177,40 @@ def checkout(order_id):
             for item_id in ret_order['items']:
                 requests.post(f"{stock_url}/subtract/{item_id}/1")
         return 'success', 200
+    except Exception:
+        return 'failure', 400
+
+
+
+transactions = {}
+
+@app.post('/prepareTransaction/<transaction_id>/<uid>')
+def prepareTransaction(transaction_id, uid):
+    try:
+        session = sessionmaker(engine)()
+
+        session.add(User(user_id=uid))
+        session.flush()
+        transactions[transaction_id] = session
+
+        return 'Ready', 200
+    except Exception:
+        return 'failure', 400
+
+
+@app.post('/endTransaction/<transaction_id>/<status>')
+def endTransaction(transaction_id, status):
+    try:
+        if status == 'commit':
+            transactions[transaction_id].commit()
+            transactions[transaction_id].close()
+        elif status == 'rollback':
+            transactions[transaction_id].rollback()
+            transactions[transaction_id].close()
+        else :
+            return 'Unknown status: ' + status, 400
+        return 'Success', 200
+
     except Exception:
         return 'failure', 400
 
