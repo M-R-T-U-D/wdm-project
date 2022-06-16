@@ -55,6 +55,10 @@ def remove_order_helper(session, order_id):
 
 @app.delete('/remove/<order_id>')
 def remove_order(order_id):
+    prepareTransaction()
+    
+    # requests.post(f'{payment_url}/prepareTransaction/{len(transactions) + 1}/<uid>')
+    
     try:
         run_transaction(
             sessionmaker(bind=engine),
