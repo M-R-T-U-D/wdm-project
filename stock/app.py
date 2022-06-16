@@ -110,6 +110,38 @@ def remove_stock(item_id: str, amount: int):
     except NotEnoughStockException as e:
         return str(e), 400
 
+transactions = {}
+
+@app.post('/prepareTransaction/<transaction_id>/<uid>')
+def prepareTransaction(transaction_id, uid):
+    try:
+        session = sessionmaker(engine)()
+
+        session.add(User(user_id=uid))
+        session.flush()
+        transactions[transaction_id] = session
+
+        return 'Ready', 200
+    except Exception:
+        return 'failure', 400
+
+
+@app.post('/endTransaction/<transaction_id>/<status>')
+def endTransaction(transaction_id, status):
+    try:
+        if status == 'commit':
+            transactions[transaction_id].commit()
+            transactions[transaction_id].close()
+        elif status == 'rollback':
+            transactions[transaction_id].rollback()
+            transactions[transaction_id].close()
+        else :
+            return 'Unknown status: ' + status, 400
+        return 'Success', 200
+
+    except Exception:
+        return 'failure', 400
+
 # def main():
 #     Base.metadata.create_all(bind=engine, checkfirst=True)
 #     app.run(host="0.0.0.0", port=8081, debug=True)
