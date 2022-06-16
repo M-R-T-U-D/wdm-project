@@ -75,7 +75,10 @@ def find_user(user_id: str):
 
 def add_credit_helper(session, user_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
-    user.credit += amount
+    temp = float(user.credit)
+    temp += amount
+    user.credit = str(temp)
+    # user.credit += amount
 
 @app.post('/add_funds/<user_id>/<float:amount>')
 def add_credit(user_id: str, amount: float):
@@ -96,11 +99,18 @@ def add_credit(user_id: str, amount: float):
 def pay_helper(session, user_id, order_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
 
-    order_info = requests.get(f"{order_url}/find/{order_id}").json()
+    resp_find_order = requests.get(f"{order_url}/find/{order_id}")
+    if resp_find_order.status_code >= 400:
+        raise Exception(resp_find_order.text)
+    order_info = resp_find_order.json()
     if not order_info.paid:
-        if user.credit >= amount:
-            user.credit -= amount
-            requests.post(f'{order_url}/pay_order/{user_id}/{order_id}')
+        temp = float(user.credit)
+        if temp >= amount:
+            temp -= amount
+            user.credit = str(temp)
+            resp_pay_order = requests.post(f'{order_url}/pay_order/{user_id}/{order_id}')
+            if resp_pay_order.status_code >= 400:
+                raise Exception(resp_pay_order.text)
             new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount)
             session.add(new_payment)
         else:
@@ -122,10 +132,16 @@ def remove_credit(user_id: str, order_id: str, amount: float):
         return "Multiple users or order were found while one is expected", 402
     except NotEnoughCreditException as e:
         return str(e), 403
+    except Exception as e:
+        return str(e), 404
 
 def cancel_payment_helper(session, user_id, order_id):
     user = session.query(User).filter(User.user_id == user_id).one()
-    order_info = requests.get(f"{order_url}/find/{order_id}").json()
+
+    resp_order_info = requests.get(f"{order_url}/find/{order_id}")
+    if resp_order_info.status_code >= 400:
+        raise Exception(resp_order_info.text)
+    order_info = resp_order_info.json()
     payment = session.query(Payment).filter(
         Payment.user_id == user_id,
         Payment.order_id == order_id
@@ -133,8 +149,13 @@ def cancel_payment_helper(session, user_id, order_id):
 
     # Only add amount of payment to the user if the order is paid already
     if order_info.paid:
-        requests.post(f'{order_url}/cancel_order/{user_id}/{order_id}')
-        user.credit += payment.amount
+        resp_cancel_order = requests.post(f'{order_url}/cancel_order/{user_id}/{order_id}')
+        if resp_order_info.status_code >= 400:
+            raise Exception(resp_cancel_order.text)
+        temp = float(user.credit)
+        temp += payment.amount
+        user.credit = str(temp)
+        # user.credit += payment.amount
     
     print(session.query(Payment).filter(
         Payment.user_id == user_id,
@@ -151,9 +172,11 @@ def cancel_payment(user_id: str, order_id: str):
         )
         return '', 200
     except NoResultFound:
-        return "No user or payment was found", 400
+        return "No user or payment was found", 401
     except MultipleResultsFound:
-        return "Multiple users or payments were found while one is expected", 400
+        return "Multiple users or payments were found while one is expected", 402
+    except Exception as e:
+        return str(e), 404
 
 
 def status_helper(session, user_id, order_id):

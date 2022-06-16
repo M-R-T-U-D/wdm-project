@@ -79,7 +79,9 @@ def cancel_order(user_id: str, order_id: str):
     )
     item_ids = json.loads(find_order(order_id)[0].get_data(as_text=True))
     for item_id in item_ids:
-        requests.post(f"{stock_url}/add/{item_id}/1") 
+        resp_stock_add = requests.post(f"{stock_url}/add/{item_id}/1")
+        if resp_stock_add.status_code >= 400:
+            return resp_stock_add.text, 400
     return '', 200
 
 def pay_order_helper(session, user_id, order_id):
@@ -145,12 +147,18 @@ def find_order(order_id):
         )
 
         if ret_user_order and ret_order_items:
-            status = requests.post(f"{payment_url}/status/{ret_user_order.user_id}/{order_id}").json()['paid']
+            resp_pay_status = requests.post(f"{payment_url}/status/{ret_user_order.user_id}/{order_id}")
+            if resp_pay_status.status_code >= 400:
+                return resp_pay_status.text, 400
+            status = resp_pay_status.json()['paid']
             items = []
             total_cost = 0.0
             for order_item in ret_order_items:
-                stock_price = requests.get(f"{stock_url}/find/{order_item.item_id}").json()['price']
-                total_cost += stock_price
+                resp_stock_price = requests.get(f"{stock_url}/find/{order_item.item_id}")
+                if resp_stock_price.status_code >= 400:
+                    return resp_stock_price.text, 400
+                stock_price = resp_stock_price.json()['price']
+                total_cost += float(stock_price)
                 items.append(order_item.item_id)
             return jsonify(
                 order_id=order_id,
@@ -173,10 +181,15 @@ def checkout(order_id):
     try:
         ret_order = json.loads(find_order(order_id)[0].get_data(as_text=True))
         status_before = ret_order['paid']
-        requests.post(f"{payment_url}/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
+        resp_pay = requests.post(f"{payment_url}/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
+        if resp_pay.status_code >= 400:
+            return resp_pay.text, 400
         if not status_before:
             for item_id in ret_order['items']:
-                requests.post(f"{stock_url}/subtract/{item_id}/1")
+                resp_stock = requests.post(f"{stock_url}/subtract/{item_id}/1")
+                if resp_stock.status_code >= 400:
+                    return resp_stock.text, 400
+
         return 'success', 200
     except Exception as e:
         return str(e), 400 # TODO: 
