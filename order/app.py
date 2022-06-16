@@ -147,7 +147,7 @@ def find_order(order_id):
         if ret_user_order and ret_order_items:
             status = requests.post(f"{payment_url}/status/{ret_user_order.user_id}/{order_id}").json()['paid']
             items = []
-            total_cost = 0
+            total_cost = 0.0
             for order_item in ret_order_items:
                 stock_price = requests.get(f"{stock_url}/find/{order_item.item_id}").json()['price']
                 total_cost += stock_price

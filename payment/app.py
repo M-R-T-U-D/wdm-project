@@ -77,8 +77,8 @@ def add_credit_helper(session, user_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
     user.credit += amount
 
-@app.post('/add_funds/<user_id>/<int:amount>')
-def add_credit(user_id: str, amount: int):
+@app.post('/add_funds/<user_id>/<float:amount>')
+def add_credit(user_id: str, amount: float):
     try:
         run_transaction(
             sessionmaker(bind=engine),
@@ -106,8 +106,8 @@ def pay_helper(session, user_id, order_id, amount):
         
 
     
-@app.post('/pay/<user_id>/<order_id>/<int:amount>')
-def remove_credit(user_id: str, order_id: str, amount: int):
+@app.post('/pay/<user_id>/<order_id>/<float:amount>')
+def remove_credit(user_id: str, order_id: str, amount: float):
     try:
         run_transaction(
             sessionmaker(bind=engine),

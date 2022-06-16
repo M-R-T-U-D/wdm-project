@@ -1,14 +1,14 @@
 CREATE TABLE users
 (
   user_id UUID PRIMARY KEY,
-  credit INTEGER DEFAULT 0 NOT NULL
+  credit NUMERIC(19, 5) DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE stocks
 (
   item_id UUID PRIMARY KEY,
   stock INTEGER NOT NULL,
-  price INTEGER NOT NULL
+  price NUMERIC(19, 5) NOT NULL
 );
 
 CREATE TABLE orders
@@ -38,7 +38,7 @@ CREATE TABLE payments
   payment_id BIGSERIAL PRIMARY KEY,
   user_id UUID NOT NULL,
   order_id UUID NOT NULL,
-  amount INTEGER NOT NULL,
+  amount NUMERIC(19, 5) NOT NULL,
   CONSTRAINT fk_user_payment_id
       FOREIGN KEY(user_id)
 	    REFERENCES users(user_id)
