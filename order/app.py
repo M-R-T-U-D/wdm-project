@@ -2,6 +2,7 @@ import os
 import sys
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.engine import Connection
 from sqlalchemy_cockroachdb import run_transaction
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from werkzeug.exceptions import HTTPException
@@ -182,31 +183,36 @@ def checkout(order_id):
 
 
 
-transactions = {}
 
 @app.post('/prepareTransaction/<transaction_id>/<uid>')
 def prepareTransaction(transaction_id, uid):
     try:
-        session = sessionmaker(engine)()
+        session = sessionmaker(engine)(twophase=True)
 
         session.add(User(user_id=uid))
-        session.flush()
-        transactions[transaction_id] = session
+        session.prepare()
+        # Get session id
+        for k, v in session.transaction._connections.iteritems():
+            if isinstance(k, Connection):
+                return 'Ready' +  v[1].xid, 200
 
-        return 'Ready', 200
+        return 'failure', 400
     except Exception:
         return 'failure', 400
 
 
-@app.post('/endTransaction/<transaction_id>/<status>')
-def endTransaction(transaction_id, status):
+@app.post('/endTransaction/<xid>/<status>')
+def endTransaction(xid, status):
+    session = sessionmaker(engine)(twophase=True)
+    session.connection().commit_prepared(xid, recover=True)
+
     try:
         if status == 'commit':
-            transactions[transaction_id].commit()
-            transactions[transaction_id].close()
+            session.commit()
+            session.close()
         elif status == 'rollback':
-            transactions[transaction_id].rollback()
-            transactions[transaction_id].close()
+            session.rollback()
+            session.close()
         else :
             return 'Unknown status: ' + status, 400
         return 'Success', 200
