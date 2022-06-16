@@ -85,11 +85,13 @@ def add_credit(user_id: str, amount: float):
             lambda s: add_credit_helper(s, user_id, amount)
         )
         return jsonify(done=True), 200
-    except NoResultFound:
-        print("No user was found")
-    except MultipleResultsFound:
-        print("Multiple users were found while one is expected")
-    return jsonify(done=False), 400
+    except Exception as e:
+        return str(e), 400
+    # except NoResultFound:
+    #     print("No user was found")
+    # except MultipleResultsFound:
+    #     print("Multiple users were found while one is expected")
+    # return jsonify(done=False), 400
 
 def pay_helper(session, user_id, order_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()

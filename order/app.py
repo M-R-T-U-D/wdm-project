@@ -178,8 +178,8 @@ def checkout(order_id):
             for item_id in ret_order['items']:
                 requests.post(f"{stock_url}/subtract/{item_id}/1")
         return 'success', 200
-    except Exception:
-        return 'failure', 400
+    except Exception as e:
+        return str(e), 400 # TODO: 
 
 # def main():
 #     Base.metadata.create_all(bind=engine, checkfirst=True)
