@@ -188,8 +188,8 @@ def checkout(order_id):
 
 
 
-@app.post('/prepareTransaction/<transaction_id>/<uid>')
-def prepareTransaction(transaction_id, uid):
+@app.post('/prepareTransaction/<uid>')
+def prepareTransaction(uid):
     try:
         session = sessionmaker(engine)(twophase=True)
 
