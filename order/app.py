@@ -201,8 +201,8 @@ def prepareTransaction(uid):
                 return 'Ready' +  v[1].xid, 200
 
         return 'failure', 400
-    except Exception:
-        return 'failure', 400
+    except Exception as e:
+        return e, 400
 
 
 @app.post('/endTransaction/<xid>/<status>')
