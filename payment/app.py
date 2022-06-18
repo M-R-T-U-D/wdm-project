@@ -80,12 +80,12 @@ def add_credit_helper(session, user_id, amount):
     user.credit = str(temp)
     # user.credit += amount
 
-@app.post('/add_funds/<user_id>/<float:amount>')
+@app.post('/add_funds/<user_id>/<amount>')
 def add_credit(user_id: str, amount: float):
     try:
         run_transaction(
             sessionmaker(bind=engine),
-            lambda s: add_credit_helper(s, user_id, amount)
+            lambda s: add_credit_helper(s, user_id, float(amount))
         )
         return jsonify(done=True), 200
     except Exception as e:
@@ -118,12 +118,12 @@ def pay_helper(session, user_id, order_id, amount):
         
 
     
-@app.post('/pay/<user_id>/<order_id>/<float:amount>')
+@app.post('/pay/<user_id>/<order_id>/<amount>')
 def remove_credit(user_id: str, order_id: str, amount: float):
     try:
         run_transaction(
             sessionmaker(bind=engine),
-            lambda s: pay_helper(s, user_id, order_id, amount)
+            lambda s: pay_helper(s, user_id, order_id, float(amount))
         )
         return '', 200
     except NoResultFound:
