@@ -145,6 +145,7 @@ def endTransaction(transaction_id, status):
         else :
             return 'Unknown status: ' + status, 400
         transactions[transaction_id].close()
+        del transactions[transaction_id]
         return 'Success', 200
 
     except Exception:
