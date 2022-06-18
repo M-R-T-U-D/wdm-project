@@ -21,8 +21,6 @@ datebase_url = os.environ['DATABASE_URL']
 
 app = Flask("order-service")
 
-# DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
-
 try:
     engine = create_engine(datebase_url)
 except Exception as e:
@@ -64,38 +62,6 @@ def remove_order(order_id):
     except Exception:
         return "Something went wrong", 400
 
-def cancel_order_helper(session, user_id, order_id):
-    order = session.query(Order).filter(
-        Order.order_id == order_id,
-        Order.user_id == user_id
-    ).one()
-    order.paid = False
-
-@app.post('/cancel_order/<user_id>/<order_id>')
-def cancel_order(user_id: str, order_id: str):
-    run_transaction(
-        sessionmaker(bind=engine),
-        lambda s: cancel_order_helper(s, user_id, order_id)
-    )
-    item_ids = json.loads(find_order(order_id)[0].get_data(as_text=True))
-    for item_id in item_ids:
-        requests.post(f"{stock_url}/add/{item_id}/1") 
-    return '', 200
-
-def pay_order_helper(session, user_id, order_id):
-    order = session.query(Order).filter(
-        Order.order_id == order_id,
-        Order.user_id == user_id
-    ).one()
-    order.paid = True
-
-@app.post('/pay_order/<user_id>/<order_id>')
-def pay_order(user_id: str, order_id: str):
-    run_transaction(
-        sessionmaker(bind=engine),
-        lambda s: pay_order_helper(s, user_id, order_id)
-    )
-    return '', 200
 
 def add_item_order_helper(session, order_id, item_id):
     new_item_order = Cart(item_id=item_id, order_id=order_id)
@@ -145,12 +111,18 @@ def find_order(order_id):
         )
 
         if ret_user_order and ret_order_items:
-            status = requests.post(f"{payment_url}/status/{ret_user_order.user_id}/{order_id}").json()['paid']
+            resp_pay_status = requests.post(f"{payment_url}/status/{ret_user_order.user_id}/{order_id}")
+            if resp_pay_status.status_code >= 400:
+                return resp_pay_status.text, 400
+            status = resp_pay_status.json()['paid']
             items = []
-            total_cost = 0
+            total_cost = 0.0
             for order_item in ret_order_items:
-                stock_price = requests.get(f"{stock_url}/find/{order_item.item_id}").json()['price']
-                total_cost += stock_price
+                resp_stock_price = requests.get(f"{stock_url}/find/{order_item.item_id}")
+                if resp_stock_price.status_code >= 400:
+                    return resp_stock_price.text, 400
+                stock_price = resp_stock_price.json()['price']
+                total_cost += float(stock_price)
                 items.append(order_item.item_id)
             return jsonify(
                 order_id=order_id,
@@ -173,17 +145,15 @@ def checkout(order_id):
     try:
         ret_order = json.loads(find_order(order_id)[0].get_data(as_text=True))
         status_before = ret_order['paid']
-        requests.post(f"{payment_url}/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
+        resp_pay = requests.post(f"{payment_url}/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
+        if resp_pay.status_code >= 400:
+            return resp_pay.text, 400
         if not status_before:
             for item_id in ret_order['items']:
-                requests.post(f"{stock_url}/subtract/{item_id}/1")
+                resp_stock = requests.post(f"{stock_url}/subtract/{item_id}/1")
+                if resp_stock.status_code >= 400:
+                    return resp_stock.text, 400
+
         return 'success', 200
-    except Exception:
-        return 'failure', 400
-
-# def main():
-#     Base.metadata.create_all(bind=engine, checkfirst=True)
-#     app.run(host="0.0.0.0", port=8082, debug=True)
-
-# if __name__ == '__main__':
-#     main()
+    except Exception as e:
+        return str(e), 400

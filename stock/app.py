@@ -43,10 +43,10 @@ class NotEnoughStockException(Exception):
 
 
 
-@app.post('/item/create/<int:price>')
-def create_item(price: int):
+@app.post('/item/create/<price>')
+def create_item(price: float):
     item_uuid = uuid.uuid4()
-    new_item = Stock(item_id=item_uuid, price=price)
+    new_item = Stock(item_id=item_uuid, price=float(price))
     run_transaction(sessionmaker(bind=engine), lambda s: s.add(new_item))
     return jsonify(item_id=item_uuid)
 
