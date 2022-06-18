@@ -178,45 +178,49 @@ def checkout(order_id):
     try:
         ret_order = json.loads(find_order(order_id)[0].get_data(as_text=True))
         status_before = ret_order['paid']
+
+        # prepare
         requests.post(f"{payment_url}/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
         if not status_before:
             for item_id in ret_order['items']:
                 requests.post(f"{stock_url}/subtract/{item_id}/1")
+        
+        # Commit
+
+
         return 'success', 200
     except Exception:
         return 'failure', 400
 
 
-tSessions = {}
+transactions = {}
 
-@app.post('/prepareTransaction/<tid>/<uid>')
-def prepareTransaction(tid,uid):
+@app.post('/prepareTransaction/<transaction_id>/<uid>')
+def prepareTransaction(transaction_id, uid):
     try:
         session = sessionmaker(engine)()
 
         session.add(User(user_id=uid))
         session.flush()
-        # Get session id
-        tSessions[tid] = session
-        return "Ready " + tid, 400
+
+        transactions[transaction_id] = session
+
+        return 'Ready', 200
     except Exception as e:
         return e, 400
 
 
-@app.post('/endTransaction/<tid>/<status>')
-def endTransaction(tid, status):
-
-    session = tSessions[tid]
+@app.post('/endTransaction/<transaction_id>/<status>')
+def endTransaction(transaction_id, status):
 
     try:
         if status == 'commit':
-            session.commit()
-            session.close()
+            transactions[transaction_id].commit()
         elif status == 'rollback':
-            session.rollback()
-            session.close()
+            transactions[transaction_id].rollback()
         else :
             return 'Unknown status: ' + status, 400
+        transactions[transaction_id].close()
         return 'Success', 200
 
     except Exception:
