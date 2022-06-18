@@ -76,7 +76,7 @@ def add_credit_helper(session, user_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
     temp = float(user.credit)
     temp += amount
-    user.credit = str(temp)
+    user.credit = temp
 
 @app.post('/add_funds/<user_id>/<amount>')
 def add_credit(user_id: str, amount: float):
@@ -134,7 +134,7 @@ def cancel_payment_helper(session, user_id, order_id):
     if status['paid']:
         temp = float(user.credit)
         temp += payment.amount
-        user.credit = str(temp)
+        user.credit = temp
 
     print(session.query(Payment).filter(
         Payment.user_id == user_id,

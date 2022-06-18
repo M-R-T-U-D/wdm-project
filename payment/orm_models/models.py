@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, Boolean, ForeignKey, Numeric
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, FLOAT
 from sqlalchemy.orm import declarative_base, relationship
 
 Base = declarative_base()
@@ -27,7 +27,7 @@ class Payment(Base):
         ForeignKey('orders.order_id', ondelete="CASCADE"), 
         nullable=False
     )
-    amount = Column(Numeric(100000, 64), nullable=False)
+    amount = Column(FLOAT(precision=64, decimal_return_scale=None), nullable=False)
     
     def to_dict(self):
        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
@@ -38,7 +38,7 @@ class User(Base):
     __tablename__ = 'users'
 
     user_id = Column(UUID(as_uuid=True), primary_key=True)
-    credit = Column(Numeric(100000, 64), nullable=False, default=0)
+    credit = Column(FLOAT(precision=64, decimal_return_scale=None), nullable=False, default=0)
     fk_order_ids = relationship(
         "Order",
         # cascade="all, delete", # if there are orders loaded with the associated user in a session, then DELETE query is emitted for each of the orders (deletion on ORM side)
@@ -109,7 +109,7 @@ class Stock(Base):
 
     item_id = Column(UUID(as_uuid=True), primary_key=True)
     stock = Column(Integer, nullable=False, default=0)
-    price = Column(Numeric(100000, 64), nullable=False)
+    price = Column(FLOAT(precision=64, decimal_return_scale=None), nullable=False)
 
     def to_dict(self):
        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
