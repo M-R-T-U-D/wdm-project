@@ -114,8 +114,8 @@ def remove_stock(item_id: str, amount: int):
 transactions = {}
 
 
-@app.post('/subtract/<transaction_id>/<item_id>/<int:amount>')
-def remove_stock(transaction_id, item_id: str, amount: int):
+@app.post('/prepare_subtract/<transaction_id>/<item_id>/<int:amount>')
+def prepare_remove_stock(transaction_id, item_id: str, amount: int):
     try:
         session = None
         if transaction_id in transactions:

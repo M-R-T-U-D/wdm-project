@@ -21,6 +21,8 @@ datebase_url = os.environ['DATABASE_URL']
 
 app = Flask("order-service")
 
+transaction_counter = 0
+
 # DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
 
 try:
@@ -29,6 +31,11 @@ except Exception as e:
     print("Failed to connect to database.")
     print(f"{e}")
 
+# Generates new transaction id.
+def get_new_transaction_id():
+    global transaction_counter
+    transaction_counter += 1
+    return transaction_counter
 
 # Catch all unhandled exceptions
 @app.errorhandler(Exception)
@@ -39,8 +46,6 @@ def handle_exception(e):
     
     # now you're handling non-HTTP exceptions only
     return jsonify(error=str(e)), 400
-
-
 
 
 @app.post('/create/<user_id>')
@@ -171,27 +176,62 @@ def find_order(order_id):
         return "Multiple user_orders were found while one is expected", 400
 
 
+# @app.post('/checkout/<order_id>')
+# def checkout(order_id):
+#     try:
+#         ret_order = json.loads(find_order(order_id)[0].get_data(as_text=True))
+#         status_before = ret_order['paid']
+
+#         # prepare
+#         requests.post(f"{payment_url}/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
+#         if not status_before:
+#             for item_id in ret_order['items']:
+#                 requests.post(f"{stock_url}/subtract/{item_id}/1")
+        
+#         # Commit
+
+#         return 'success', 200
+#     except Exception:
+#         return 'failure', 400
+
 @app.post('/checkout/<order_id>')
 def checkout(order_id):
     try:
+        payment_transaction_id = get_new_transaction_id()
+
         ret_order = json.loads(find_order(order_id)[0].get_data(as_text=True))
         status_before = ret_order['paid']
 
-        # prepare
-        requests.post(f"{payment_url}/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
-        if not status_before:
-            for item_id in ret_order['items']:
-                requests.post(f"{stock_url}/subtract/{item_id}/1")
-        
-        # Commit
+        stock_transaction_id = get_new_transaction_id()
 
+        if status_before:
+            # Order is already payed.
+            return 'transaction already checked out', 400
+        else:
+            pay_status = requests.post(f"{payment_url}/prepare_pay/{stock_transaction_id}/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
+            stock_subtract_status_list = []
+            for idx, item_id in enumerate(ret_order['items']):
+                stock_subtract_status_list[idx] = requests.post(f"{stock_url}/prepare_subtract/{stock_transaction_id}/{item_id}/1")
 
+            all_stock_requests = all([x.status_code == 200 for x in stock_subtract_status_list])
+            
+            # Check if both services are ready to commit.
+            if pay_status and all_stock_requests:
+                requests.post(f"{payment_url}/endTransaction/{payment_transaction_id}/commit")
+                requests.post(f"{stock_url}/endTransaction/{stock_transaction_id}/commit")
+            elif not pay_status:
+                # Payment went wrong.
+                requests.post(f"{payment_url}/endTransaction/{payment_transaction_id}/rollback")
+            else:
+                # Reducing the stock went wrong.
+                requests.post(f"{stock_url}/endTransaction/{stock_transaction_id}/rollback")
+            
         return 'success', 200
     except Exception:
         return 'failure', 400
 
 
-transactions = {}
+
 
 @app.post('/prepareTransaction/<transaction_id>/<uid>')
 def prepareTransaction(transaction_id, uid):

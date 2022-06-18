@@ -45,8 +45,6 @@ class NotEnoughCreditException(Exception):
          return "Not enough credits"
 
 
-
-
 @app.post('/create_user')
 def create_user():
     user_uuid = uuid.uuid4()
@@ -121,6 +119,22 @@ def remove_credit(user_id: str, order_id: str, amount: int):
     except NotEnoughCreditException as e:
         return str(e), 403
 
+@app.post('/prepare_pay/<transaction_id>/<user_id>/<order_id>/<int:amount>')
+def prepare_remove_credit(transaction_id, user_id: str, order_id: str, amount: int):
+    try:
+        session = sessionmaker(engine)()
+        transactions[transaction_id] = session
+
+        pay_helper(session, user_id, order_id, amount)
+        session.flush()
+        return 'Ready', 200
+    except NoResultFound:
+        return "No user or order was found", 401
+    except MultipleResultsFound:
+        return "Multiple users or order were found while one is expected", 402
+    except NotEnoughCreditException as e:
+        return str(e), 403
+
 def cancel_payment_helper(session, user_id, order_id):
     user = session.query(User).filter(User.user_id == user_id).one()
     order_info = requests.get(f"{order_url}/find/{order_id}").json()
@@ -175,20 +189,6 @@ def payment_status(user_id: str, order_id: str):
         return jsonify(paid=False)
 
 transactions = {}
-
-@app.post('/prepareTransaction/<transaction_id>/<uid>')
-def prepareTransaction(transaction_id, uid):
-    try:
-        session = sessionmaker(engine)()
-        
-        session.add(User(user_id=uid))
-        session.flush()
-        transactions[transaction_id] = session
-
-        return 'Ready', 200
-    except Exception:
-        return 'failure', 400
-
 
 @app.post('/endTransaction/<transaction_id>/<status>')
 def endTransaction(transaction_id, status):
