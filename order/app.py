@@ -1,14 +1,12 @@
 import os
 import sys
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, session
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy.engine import Connection
-from torch import t
 from sqlalchemy_cockroachdb import run_transaction
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from werkzeug.exceptions import HTTPException
 import uuid
-
 import json
 import requests
 from flask import Flask, jsonify
