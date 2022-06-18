@@ -21,8 +21,6 @@ datebase_url = os.environ['DATABASE_URL']
 
 app = Flask("order-service")
 
-# DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
-
 try:
     engine = create_engine(datebase_url)
 except Exception as e:
@@ -64,40 +62,6 @@ def remove_order(order_id):
     except Exception:
         return "Something went wrong", 400
 
-def cancel_order_helper(session, user_id, order_id):
-    order = session.query(Order).filter(
-        Order.order_id == order_id,
-        Order.user_id == user_id
-    ).one()
-    order.paid = False
-
-@app.post('/cancel_order/<user_id>/<order_id>')
-def cancel_order(user_id: str, order_id: str):
-    run_transaction(
-        sessionmaker(bind=engine),
-        lambda s: cancel_order_helper(s, user_id, order_id)
-    )
-    item_ids = json.loads(find_order(order_id)[0].get_data(as_text=True))
-    for item_id in item_ids:
-        resp_stock_add = requests.post(f"{stock_url}/add/{item_id}/1")
-        if resp_stock_add.status_code >= 400:
-            return resp_stock_add.text, 400
-    return '', 200
-
-def pay_order_helper(session, user_id, order_id):
-    order = session.query(Order).filter(
-        Order.order_id == order_id,
-        Order.user_id == user_id
-    ).one()
-    order.paid = True
-
-@app.post('/pay_order/<user_id>/<order_id>')
-def pay_order(user_id: str, order_id: str):
-    run_transaction(
-        sessionmaker(bind=engine),
-        lambda s: pay_order_helper(s, user_id, order_id)
-    )
-    return '', 200
 
 def add_item_order_helper(session, order_id, item_id):
     new_item_order = Cart(item_id=item_id, order_id=order_id)
@@ -192,11 +156,4 @@ def checkout(order_id):
 
         return 'success', 200
     except Exception as e:
-        return str(e), 400 # TODO: 
-
-# def main():
-#     Base.metadata.create_all(bind=engine, checkfirst=True)
-#     app.run(host="0.0.0.0", port=8082, debug=True)
-
-# if __name__ == '__main__':
-#     main()
+        return str(e), 400
