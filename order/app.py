@@ -1,8 +1,9 @@
 import os
 import sys
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, session
 from sqlalchemy.engine import Connection
+from torch import t
 from sqlalchemy_cockroachdb import run_transaction
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from werkzeug.exceptions import HTTPException
@@ -186,29 +187,26 @@ def checkout(order_id):
         return 'failure', 400
 
 
+tSessions = {}
 
-
-@app.post('/prepareTransaction/<uid>')
-def prepareTransaction(uid):
+@app.post('/prepareTransaction/<tid>/<uid>')
+def prepareTransaction(tid,uid):
     try:
-        session = sessionmaker(engine)(twophase=True)
+        session = sessionmaker(engine)()
 
         session.add(User(user_id=uid))
-        session.prepare()
+        session.flush()
         # Get session id
-        for k, v in session.transaction._connections.iteritems():
-            if isinstance(k, Connection):
-                return 'Ready' +  v[1].xid, 200
-
-        return 'failure', 400
+        tSessions[tid] = session
+        return "Ready " + tid, 400
     except Exception as e:
         return e, 400
 
 
-@app.post('/endTransaction/<xid>/<status>')
-def endTransaction(xid, status):
-    session = sessionmaker(engine)(twophase=True)
-    session.connection().commit_prepared(xid, recover=True)
+@app.post('/endTransaction/<tid>/<status>')
+def endTransaction(tid, status):
+
+    session = tSessions[tid]
 
     try:
         if status == 'commit':
