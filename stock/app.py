@@ -110,33 +110,41 @@ def remove_stock(item_id: str, amount: int):
     except NotEnoughStockException as e:
         return str(e), 400
 
+
 transactions = {}
 
-@app.post('/prepareTransaction/<transaction_id>/<uid>')
-def prepareTransaction(transaction_id, uid):
-    try:
-        session = sessionmaker(engine)()
 
-        session.add(User(user_id=uid))
+@app.post('/subtract/<transaction_id>/<item_id>/<int:amount>')
+def remove_stock(transaction_id, item_id: str, amount: int):
+    try:
+        session = None
+        if transaction_id in transactions:
+            session = transactions[transaction_id]
+        else :
+            session = sessionmaker(engine)()
+            transactions[transaction_id] = session
+
+        remove_stock_helper(session, item_id, amount)
         session.flush()
-        transactions[transaction_id] = session
 
         return 'Ready', 200
-    except Exception:
-        return 'failure', 400
-
+    except NoResultFound:
+        return "No item was found", 400
+    except MultipleResultsFound:
+        return "Multiple items were found while one is expected", 400
+    except NotEnoughStockException as e:
+        return str(e), 400
 
 @app.post('/endTransaction/<transaction_id>/<status>')
 def endTransaction(transaction_id, status):
     try:
         if status == 'commit':
             transactions[transaction_id].commit()
-            transactions[transaction_id].close()
         elif status == 'rollback':
             transactions[transaction_id].rollback()
-            transactions[transaction_id].close()
         else :
             return 'Unknown status: ' + status, 400
+        transactions[transaction_id].close()
         return 'Success', 200
 
     except Exception:
