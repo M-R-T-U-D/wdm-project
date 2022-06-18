@@ -43,10 +43,10 @@ class NotEnoughStockException(Exception):
 
 
 
-@app.post('/item/create/<int:price>')
-def create_item(price: int):
+@app.post('/item/create/<price>')
+def create_item(price: float):
     item_uuid = uuid.uuid4()
-    new_item = Stock(item_id=item_uuid, price=price)
+    new_item = Stock(item_id=item_uuid, price=float(price))
     run_transaction(sessionmaker(bind=engine), lambda s: s.add(new_item))
     return jsonify(item_id=item_uuid)
 
@@ -110,9 +110,7 @@ def remove_stock(item_id: str, amount: int):
     except NotEnoughStockException as e:
         return str(e), 400
 
-
 transactions = {}
-
 
 @app.post('/prepare_subtract/<transaction_id>/<item_id>/<int:amount>')
 def prepare_remove_stock(transaction_id, item_id: str, amount: int):
@@ -156,4 +154,3 @@ def endTransaction(transaction_id, status):
 #     app.run(host="0.0.0.0", port=8081, debug=True)
 
 # if __name__ == '__main__':
-#     main()

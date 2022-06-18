@@ -11,9 +11,10 @@ import json
 import requests
 from flask import Flask, jsonify
 
+
 # NOTE: make sure to run this app.py from this folder, so python app.py so that models are also read correctly from root
 sys.path.append("../")
-from orm_models.models import Order, Cart, User
+from orm_models.models import Order, Cart
 
 stock_url = os.environ['STOCK_URL']
 payment_url = os.environ['PAYMENT_URL']
@@ -21,15 +22,14 @@ datebase_url = os.environ['DATABASE_URL']
 
 app = Flask("order-service")
 
-transaction_counter = 0
-
-# DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
-
 try:
     engine = create_engine(datebase_url)
 except Exception as e:
     print("Failed to connect to database.")
     print(f"{e}")
+
+
+transaction_counter = 0
 
 # Generates new transaction id.
 def get_new_transaction_id():
@@ -48,6 +48,8 @@ def handle_exception(e):
     return jsonify(error=str(e)), 400
 
 
+
+
 @app.post('/create/<user_id>')
 def create_order(user_id):
     order_uuid = uuid.uuid4()
@@ -60,10 +62,6 @@ def remove_order_helper(session, order_id):
 
 @app.delete('/remove/<order_id>')
 def remove_order(order_id):
-    prepareTransaction()
-    
-    # requests.post(f'{payment_url}/prepareTransaction/{len(transactions) + 1}/<uid>')
-    
     try:
         run_transaction(
             sessionmaker(bind=engine),
@@ -73,38 +71,6 @@ def remove_order(order_id):
     except Exception:
         return "Something went wrong", 400
 
-def cancel_order_helper(session, user_id, order_id):
-    order = session.query(Order).filter(
-        Order.order_id == order_id,
-        Order.user_id == user_id
-    ).one()
-    order.paid = False
-
-@app.post('/cancel_order/<user_id>/<order_id>')
-def cancel_order(user_id: str, order_id: str):
-    run_transaction(
-        sessionmaker(bind=engine),
-        lambda s: cancel_order_helper(s, user_id, order_id)
-    )
-    item_ids = json.loads(find_order(order_id)[0].get_data(as_text=True))
-    for item_id in item_ids:
-        requests.post(f"{stock_url}/add/{item_id}/1") 
-    return '', 200
-
-def pay_order_helper(session, user_id, order_id):
-    order = session.query(Order).filter(
-        Order.order_id == order_id,
-        Order.user_id == user_id
-    ).one()
-    order.paid = True
-
-@app.post('/pay_order/<user_id>/<order_id>')
-def pay_order(user_id: str, order_id: str):
-    run_transaction(
-        sessionmaker(bind=engine),
-        lambda s: pay_order_helper(s, user_id, order_id)
-    )
-    return '', 200
 
 def add_item_order_helper(session, order_id, item_id):
     new_item_order = Cart(item_id=item_id, order_id=order_id)
@@ -141,6 +107,7 @@ def find_order_items_helper(session, order_id):
     order_items = session.query(Cart).filter(Cart.order_id == order_id).all()
     return order_items
 
+
 @app.get('/find/<order_id>')
 def find_order(order_id):
     try:
@@ -154,12 +121,18 @@ def find_order(order_id):
         )
 
         if ret_user_order and ret_order_items:
-            status = requests.post(f"{payment_url}/status/{ret_user_order.user_id}/{order_id}").json()['paid']
+            resp_pay_status = requests.post(f"{payment_url}/status/{ret_user_order.user_id}/{order_id}")
+            if resp_pay_status.status_code >= 400:
+                return resp_pay_status.text, 400
+            status = resp_pay_status.json()['paid']
             items = []
-            total_cost = 0
+            total_cost = 0.0
             for order_item in ret_order_items:
-                stock_price = requests.get(f"{stock_url}/find/{order_item.item_id}").json()['price']
-                total_cost += stock_price
+                resp_stock_price = requests.get(f"{stock_url}/find/{order_item.item_id}")
+                if resp_stock_price.status_code >= 400:
+                    return resp_stock_price.text, 400
+                stock_price = resp_stock_price.json()['price']
+                total_cost += float(stock_price)
                 items.append(order_item.item_id)
             return jsonify(
                 order_id=order_id,
@@ -176,23 +149,25 @@ def find_order(order_id):
         return "Multiple user_orders were found while one is expected", 400
 
 
+
 # @app.post('/checkout/<order_id>')
 # def checkout(order_id):
 #     try:
 #         ret_order = json.loads(find_order(order_id)[0].get_data(as_text=True))
 #         status_before = ret_order['paid']
-
-#         # prepare
-#         requests.post(f"{payment_url}/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
+#         resp_pay = requests.post(f"{payment_url}/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
+#         if resp_pay.status_code >= 400:
+#             return resp_pay.text, 400
 #         if not status_before:
 #             for item_id in ret_order['items']:
-#                 requests.post(f"{stock_url}/subtract/{item_id}/1")
-        
-#         # Commit
+#                 resp_stock = requests.post(f"{stock_url}/subtract/{item_id}/1")
+#                 if resp_stock.status_code >= 400:
+#                     return resp_stock.text, 400
 
 #         return 'success', 200
-#     except Exception:
-#         return 'failure', 400
+#     except Exception as e:
+#         return str(e), 400
+
 
 @app.post('/checkout/<order_id>')
 def checkout(order_id):
@@ -209,9 +184,15 @@ def checkout(order_id):
             return 'transaction already checked out', 400
         else:
             pay_status = requests.post(f"{payment_url}/prepare_pay/{stock_transaction_id}/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
+            
+            if pay_status.status_code >= 400:
+                return pay_status.text, 400      
+
             stock_subtract_status_list = []
             for idx, item_id in enumerate(ret_order['items']):
                 stock_subtract_status_list[idx] = requests.post(f"{stock_url}/prepare_subtract/{stock_transaction_id}/{item_id}/1")
+                if stock_subtract_status_list[idx].status_code >= 400:
+                    return stock_subtract_status_list[idx].text, 400
 
             all_stock_requests = all([x.status_code == 200 for x in stock_subtract_status_list])
             
@@ -231,23 +212,6 @@ def checkout(order_id):
         return 'failure', 400
 
 
-
-
-@app.post('/prepareTransaction/<transaction_id>/<uid>')
-def prepareTransaction(transaction_id, uid):
-    try:
-        session = sessionmaker(engine)()
-
-        session.add(User(user_id=uid))
-        session.flush()
-
-        transactions[transaction_id] = session
-
-        return 'Ready', 200
-    except Exception as e:
-        return e, 400
-
-
 @app.post('/endTransaction/<transaction_id>/<status>')
 def endTransaction(transaction_id, status):
 
@@ -263,10 +227,3 @@ def endTransaction(transaction_id, status):
 
     except Exception:
         return 'failure', 400
-
-# def main():
-#     Base.metadata.create_all(bind=engine, checkfirst=True)
-#     app.run(host="0.0.0.0", port=8082, debug=True)
-
-# if __name__ == '__main__':
-#     main()

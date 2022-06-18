@@ -6,6 +6,7 @@ from sqlalchemy_cockroachdb import run_transaction
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from werkzeug.exceptions import HTTPException
 import uuid
+import json
 
 import requests
 from flask import Flask, jsonify
@@ -20,7 +21,6 @@ datebase_url = os.environ['DATABASE_URL']
 
 app = Flask("payment-service")
 
-# DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
 
 # Create engine to connect to the database
 try:
@@ -43,6 +43,8 @@ class NotEnoughCreditException(Exception):
     """Exception class for handling insufficient credits of a user"""
     def __str__(self) -> str:
          return "Not enough credits"
+
+
 
 
 @app.post('/create_user')
@@ -73,30 +75,30 @@ def find_user(user_id: str):
 
 def add_credit_helper(session, user_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
-    user.credit += amount
+    temp = float(user.credit)
+    temp += amount
+    user.credit = temp
 
-@app.post('/add_funds/<user_id>/<int:amount>')
-def add_credit(user_id: str, amount: int):
+@app.post('/add_funds/<user_id>/<amount>')
+def add_credit(user_id: str, amount: float):
     try:
         run_transaction(
             sessionmaker(bind=engine),
-            lambda s: add_credit_helper(s, user_id, amount)
+            lambda s: add_credit_helper(s, user_id, float(amount))
         )
         return jsonify(done=True), 200
-    except NoResultFound:
-        print("No user was found")
-    except MultipleResultsFound:
-        print("Multiple users were found while one is expected")
-    return jsonify(done=False), 400
+    except Exception as e:
+        return str(e), 400
 
 def pay_helper(session, user_id, order_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
 
-    order_info = requests.get(f"{order_url}/find/{order_id}").json()
-    if not order_info.paid:
-        if user.credit >= amount:
-            user.credit -= amount
-            requests.post(f'{order_url}/pay_order/{user_id}/{order_id}')
+    status = json.loads(payment_status(user_id, order_id).get_data(as_text=True))
+    if not status['paid']:
+        temp = float(user.credit)
+        if temp >= amount:
+            temp -= amount
+            user.credit = str(temp)
             new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount)
             session.add(new_payment)
         else:
@@ -104,12 +106,12 @@ def pay_helper(session, user_id, order_id, amount):
         
 
     
-@app.post('/pay/<user_id>/<order_id>/<int:amount>')
-def remove_credit(user_id: str, order_id: str, amount: int):
+@app.post('/pay/<user_id>/<order_id>/<amount>')
+def remove_credit(user_id: str, order_id: str, amount: float):
     try:
         run_transaction(
             sessionmaker(bind=engine),
-            lambda s: pay_helper(s, user_id, order_id, amount)
+            lambda s: pay_helper(s, user_id, order_id, float(amount))
         )
         return '', 200
     except NoResultFound:
@@ -118,36 +120,23 @@ def remove_credit(user_id: str, order_id: str, amount: int):
         return "Multiple users or order were found while one is expected", 402
     except NotEnoughCreditException as e:
         return str(e), 403
-
-@app.post('/prepare_pay/<transaction_id>/<user_id>/<order_id>/<int:amount>')
-def prepare_remove_credit(transaction_id, user_id: str, order_id: str, amount: int):
-    try:
-        session = sessionmaker(engine)()
-        transactions[transaction_id] = session
-
-        pay_helper(session, user_id, order_id, amount)
-        session.flush()
-        return 'Ready', 200
-    except NoResultFound:
-        return "No user or order was found", 401
-    except MultipleResultsFound:
-        return "Multiple users or order were found while one is expected", 402
-    except NotEnoughCreditException as e:
-        return str(e), 403
+    except Exception as e:
+        return str(e), 404
 
 def cancel_payment_helper(session, user_id, order_id):
     user = session.query(User).filter(User.user_id == user_id).one()
-    order_info = requests.get(f"{order_url}/find/{order_id}").json()
+    status = json.loads(payment_status(user_id, order_id).get_data(as_text=True))
     payment = session.query(Payment).filter(
         Payment.user_id == user_id,
         Payment.order_id == order_id
     ).one()
 
     # Only add amount of payment to the user if the order is paid already
-    if order_info.paid:
-        requests.post(f'{order_url}/cancel_order/{user_id}/{order_id}')
-        user.credit += payment.amount
-    
+    if status['paid']:
+        temp = float(user.credit)
+        temp += payment.amount
+        user.credit = temp
+
     print(session.query(Payment).filter(
         Payment.user_id == user_id,
         Payment.order_id == order_id
@@ -163,9 +152,11 @@ def cancel_payment(user_id: str, order_id: str):
         )
         return '', 200
     except NoResultFound:
-        return "No user or payment was found", 400
+        return "No user or payment was found", 401
     except MultipleResultsFound:
-        return "Multiple users or payments were found while one is expected", 400
+        return "Multiple users or payments were found while one is expected", 402
+    except Exception as e:
+        return str(e), 404
 
 
 def status_helper(session, user_id, order_id):
@@ -188,7 +179,26 @@ def payment_status(user_id: str, order_id: str):
     else:
         return jsonify(paid=False)
 
+
 transactions = {}
+
+@app.post('/prepare_pay/<transaction_id>/<user_id>/<order_id>/<amount>')
+def prepare_remove_credit(transaction_id, user_id: str, order_id: str, amount: float):
+    try:
+        session = sessionmaker(engine)()
+        transactions[transaction_id] = session
+
+        pay_helper(session, user_id, order_id, amount)
+        session.flush()
+        return 'Ready', 200
+    except NoResultFound:
+        return "No user or order was found", 401
+    except MultipleResultsFound:
+        return "Multiple users or order were found while one is expected", 402
+    except NotEnoughCreditException as e:
+        return str(e), 403
+    except Exception as e:
+        return str(e), 404
 
 @app.post('/endTransaction/<transaction_id>/<status>')
 def endTransaction(transaction_id, status):
@@ -205,10 +215,3 @@ def endTransaction(transaction_id, status):
 
     except Exception:
         return 'failure', 400
-
-# def main():
-#     Base.metadata.create_all(bind=engine, checkfirst=True)
-#     app.run(host="0.0.0.0", port=8083, debug=True)
-
-# if __name__ == '__main__':
-#     main()
