@@ -125,7 +125,7 @@ def prepare_remove_stock(transaction_id, item_id: str, amount: int):
             transactions[transaction_id] = session
 
         remove_stock_helper(session, item_id, amount)
-        # session.flush()
+        session.flush()
 
         return 'Ready', 200
     except NoResultFound:
