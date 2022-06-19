@@ -189,7 +189,7 @@ def prepare_remove_credit(transaction_id, user_id: str, order_id: str, amount: f
         transactions[transaction_id] = session
 
         pay_helper(session, user_id, order_id, amount)
-        session.flush()
+        # session.flush()
         return 'Ready', 200
     except NoResultFound:
         return "No user or order was found", 401
