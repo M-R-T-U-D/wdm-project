@@ -97,11 +97,13 @@ def remove_stock_helper(session, item_id, amount):
 
 @app.post('/subtract/<item_id>/<int:amount>')
 def remove_stock(item_id: str, amount: int):
+    print("Remove stock started")
     try:
         run_transaction(
             sessionmaker(bind=engine),
             lambda s: remove_stock_helper(s, item_id, amount)
         )
+        print("Remove stock ended")
         return '', 200
     except NoResultFound:
         return "No item was found", 400

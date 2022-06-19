@@ -95,10 +95,8 @@ def pay_helper(session, user_id, order_id, amount):
 
     status = json.loads(payment_status(user_id, order_id).get_data(as_text=True))
     if not status['paid']:
-        temp = float(user.credit)
-        if temp >= amount:
-            temp -= amount
-            user.credit = str(temp)
+        if user.credit >= float(amount):
+            user.credit -= float(amount)
             new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount)
             session.add(new_payment)
         else:
@@ -108,11 +106,13 @@ def pay_helper(session, user_id, order_id, amount):
     
 @app.post('/pay/<user_id>/<order_id>/<amount>')
 def remove_credit(user_id: str, order_id: str, amount: float):
+    print("Remove credit started")
     try:
         run_transaction(
             sessionmaker(bind=engine),
             lambda s: pay_helper(s, user_id, order_id, float(amount))
         )
+        print("Remove credit ended")
         return '', 200
     except NoResultFound:
         return "No user or order was found", 401

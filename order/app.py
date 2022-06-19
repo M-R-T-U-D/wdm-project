@@ -171,6 +171,7 @@ def find_order(order_id):
 
 @app.post('/checkout/<order_id>')
 def checkout(order_id):
+    print("Checkout started")
     try:
         payment_transaction_id = get_new_transaction_id()
 
@@ -183,14 +184,14 @@ def checkout(order_id):
             # Order is already payed.
             return 'transaction already checked out', 400
         else:
-            pay_status = requests.post(f"{payment_url}/prepare_pay/{stock_transaction_id}/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
+            pay_status = requests.post(f"{payment_url}/prepare_pay/{payment_transaction_id}/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
             
             if pay_status.status_code >= 400:
                 return pay_status.text, 400      
 
             stock_subtract_status_list = []
             for idx, item_id in enumerate(ret_order['items']):
-                stock_subtract_status_list[idx] = requests.post(f"{stock_url}/prepare_subtract/{stock_transaction_id}/{item_id}/1")
+                stock_subtract_status_list.append(requests.post(f"{stock_url}/prepare_subtract/{stock_transaction_id}/{item_id}/1"))
                 if stock_subtract_status_list[idx].status_code >= 400:
                     return stock_subtract_status_list[idx].text, 400
 
@@ -206,10 +207,11 @@ def checkout(order_id):
             else:
                 # Reducing the stock went wrong.
                 requests.post(f"{stock_url}/endTransaction/{stock_transaction_id}/rollback")
-            
+        print("Checkout ended")    
         return 'success', 200
-    except Exception:
-        return 'failure', 400
+    except Exception as e:
+        # add rollback 
+        return f'failure {str(e)}', 400
 
 
 @app.post('/endTransaction/<transaction_id>/<status>')
