@@ -84,6 +84,10 @@ def add_credit(user_id: str, amount: float):
             lambda s: add_credit_helper(s, user_id, float(amount))
         )
         return jsonify(done=True), 200
+    except NoResultFound:
+        return "No user was found", 401
+    except MultipleResultsFound:
+        return "Multiple users were found while one or zero is expected", 400
     except Exception as e:
         return str(e), 400
 
@@ -163,11 +167,14 @@ def status_helper(session, user_id, order_id):
 
 @app.post('/status/<user_id>/<order_id>')
 def payment_status(user_id: str, order_id: str):
-    ret_paid = run_transaction(
-        sessionmaker(bind=engine, expire_on_commit=False), 
-        lambda s: status_helper(s, user_id, order_id)
-    )
-    if ret_paid:
-        return jsonify(paid=True)
-    else:
-        return jsonify(paid=False)
+    try:
+        ret_paid = run_transaction(
+            sessionmaker(bind=engine, expire_on_commit=False),
+            lambda s: status_helper(s, user_id, order_id)
+        )
+        if ret_paid:
+            return jsonify(paid=True), 200
+        else:
+            return jsonify(paid=False), 200
+    except Exception as e:
+        return str(e), 404

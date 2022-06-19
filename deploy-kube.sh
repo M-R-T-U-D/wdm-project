@@ -54,9 +54,9 @@ minikube kubectl -- apply -f stock-app.yaml
 
 sleep 6
 
-kubectl autoscale deployment order-deployment --cpu-percent=25 --min=1 --max=10
-kubectl autoscale deployment payment-deployment --cpu-percent=25 --min=1 --max=10
-kubectl autoscale deployment stock-deployment --cpu-percent=25 --min=1 --max=10
+minikube kubectl -- autoscale deployment order-deployment --cpu-percent=25 --min=1 --max=10
+minikube kubectl -- autoscale deployment payment-deployment --cpu-percent=25 --min=1 --max=10
+minikube kubectl -- autoscale deployment stock-deployment --cpu-percent=25 --min=1 --max=10
 
 cd ..
 
