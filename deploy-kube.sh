@@ -52,6 +52,12 @@ minikube kubectl -- apply -f order-app.yaml
 minikube kubectl -- apply -f payment-app.yaml
 minikube kubectl -- apply -f stock-app.yaml
 
+sleep 6
+
+kubectl autoscale deployment order-deployment --cpu-percent=25 --min=1 --max=10
+kubectl autoscale deployment payment-deployment --cpu-percent=25 --min=1 --max=10
+kubectl autoscale deployment stock-deployment --cpu-percent=25 --min=1 --max=10
+
 cd ..
 
 cat dbinit.sql | minikube kubectl -- exec -i --namespace=default cockroachdb-client-secure -- ./cockroach sql --certs-dir=cockroach-certs --host=cockroachdb-public
