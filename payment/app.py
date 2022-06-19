@@ -74,9 +74,7 @@ def find_user(user_id: str):
 
 def add_credit_helper(session, user_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
-    temp = float(user.credit)
-    temp += amount
-    user.credit = temp
+    user.credit += amount
 
 @app.post('/add_funds/<user_id>/<amount>')
 def add_credit(user_id: str, amount: float):
@@ -94,10 +92,8 @@ def pay_helper(session, user_id, order_id, amount):
 
     status = json.loads(payment_status(user_id, order_id).get_data(as_text=True))
     if not status['paid']:
-        temp = float(user.credit)
-        if temp >= amount:
-            temp -= amount
-            user.credit = str(temp)
+        if user.credit >= amount:
+            user.credit -= amount
             new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount)
             session.add(new_payment)
         else:
@@ -132,9 +128,7 @@ def cancel_payment_helper(session, user_id, order_id):
 
     # Only add amount of payment to the user if the order is paid already
     if status['paid']:
-        temp = float(user.credit)
-        temp += payment.amount
-        user.credit = temp
+        user.credit += payment.amount
 
     print(session.query(Payment).filter(
         Payment.user_id == user_id,

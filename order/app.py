@@ -8,12 +8,11 @@ from werkzeug.exceptions import HTTPException
 import uuid
 
 import json
-import requests
 from flask import Flask, jsonify
 
 # NOTE: make sure to run this app.py from this folder, so python app.py so that models are also read correctly from root
 sys.path.append("../")
-from orm_models.models import Order, Cart
+from orm_models.models import Order, Cart, Payment, Stock, User
 
 stock_url = os.environ['STOCK_URL']
 payment_url = os.environ['PAYMENT_URL']
@@ -38,7 +37,15 @@ def handle_exception(e):
     # now you're handling non-HTTP exceptions only
     return jsonify(error=str(e)), 400
 
+class NotEnoughCreditException(Exception):
+    """Exception class for handling insufficient credits of a user"""
+    def __str__(self) -> str:
+         return "Not enough credits"
 
+class NotEnoughStockException(Exception):
+    """Exception class for handling insufficient stock of an item"""
+    def __str__(self) -> str:
+         return "Stock cannot be negative"
 
 
 @app.post('/create/<user_id>')
@@ -98,6 +105,45 @@ def find_order_items_helper(session, order_id):
     order_items = session.query(Cart).filter(Cart.order_id == order_id).all()
     return order_items
 
+
+def payment_status_helper(session, user_id, order_id):
+    payment_paid = session \
+        .query(Payment) \
+        .filter(
+            Payment.user_id == user_id, # and
+            Payment.order_id == order_id
+        ).first()
+    return payment_paid
+
+def payment_status(user_id: str, order_id: str):
+    ret_paid = run_transaction(
+        sessionmaker(bind=engine, expire_on_commit=False), 
+        lambda s: payment_status_helper(s, user_id, order_id)
+    )
+    if ret_paid:
+        return jsonify(paid=True)
+    else:
+        return jsonify(paid=False)
+
+def find_item_stock_helper(session, item_id):
+    item = session.query(Stock).filter(Stock.item_id == item_id).one()
+    return item
+
+def find_item_stock(item_id: str):
+    try:
+        ret_item = run_transaction(
+            sessionmaker(bind=engine, expire_on_commit=False),
+            lambda s: find_item_stock_helper(s, item_id)
+        )
+        return jsonify(
+            stock=ret_item.stock,
+            price=ret_item.price
+        )
+    except NoResultFound:
+        return "No item was found", 400
+    except MultipleResultsFound:
+        return "Multiple items were found while one is expected", 400
+
 @app.get('/find/<order_id>')
 def find_order(order_id):
     try:
@@ -111,17 +157,13 @@ def find_order(order_id):
         )
 
         if ret_user_order and ret_order_items:
-            resp_pay_status = requests.post(f"{payment_url}/status/{ret_user_order.user_id}/{order_id}")
-            if resp_pay_status.status_code >= 400:
-                return resp_pay_status.text, 400
-            status = resp_pay_status.json()['paid']
+            pay_status = payment_status(ret_user_order.user_id, order_id)
+            status = pay_status.json()['paid']
             items = []
             total_cost = 0.0
             for order_item in ret_order_items:
-                resp_stock_price = requests.get(f"{stock_url}/find/{order_item.item_id}")
-                if resp_stock_price.status_code >= 400:
-                    return resp_stock_price.text, 400
-                stock_price = resp_stock_price.json()['price']
+                stock_price = find_item_stock(order_item.item_id)
+                stock_price = stock_price.json()['price']
                 total_cost += float(stock_price)
                 items.append(order_item.item_id)
             return jsonify(
@@ -138,21 +180,67 @@ def find_order(order_id):
     except MultipleResultsFound:
         return "Multiple user_orders were found while one is expected", 400
 
+def pay_credit_helper(session, user_id, order_id, amount):
+    user = session.query(User).filter(User.user_id == user_id).one()
 
+    status = json.loads(payment_status(user_id, order_id).get_data(as_text=True))
+    if not status['paid']:
+        if user.credit >= amount:
+            user.credit -= amount
+            new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount)
+            session.add(new_payment)
+        else:
+            raise NotEnoughCreditException()
+        
+
+def pay_credit(user_id: str, order_id: str, amount: float):
+    try:
+        run_transaction(
+            sessionmaker(bind=engine),
+            lambda s: pay_credit_helper(s, user_id, order_id, float(amount))
+        )
+        return '', 200
+    except NoResultFound:
+        return "No user or order was found", 401
+    except MultipleResultsFound:
+        return "Multiple users or order were found while one is expected", 402
+    except NotEnoughCreditException as e:
+        return str(e), 403
+    except Exception as e:
+        return str(e), 404
+
+def remove_stock_helper(session, item_id, amount):
+    item = session.query(Stock).filter(Stock.item_id == item_id).one()
+    if item.stock >= amount:
+        item.stock -= amount
+    else:
+        raise NotEnoughStockException()
+
+def remove_stock(item_id: str, amount: int):
+    try:
+        run_transaction(
+            sessionmaker(bind=engine),
+            lambda s: remove_stock_helper(s, item_id, amount)
+        )
+        return '', 200
+    except NoResultFound:
+        return "No item was found", 400
+    except MultipleResultsFound:
+        return "Multiple items were found while one is expected", 400
+    except NotEnoughStockException as e:
+        return str(e), 400
 
 @app.post('/checkout/<order_id>')
 def checkout(order_id):
     try:
         ret_order = json.loads(find_order(order_id)[0].get_data(as_text=True))
         status_before = ret_order['paid']
-        resp_pay = requests.post(f"{payment_url}/pay/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
-        if resp_pay.status_code >= 400:
-            return resp_pay.text, 400
+        resp_pay = pay_credit(ret_order['user_id'], ret_order['order_id'], ret_order['total_cost'])
+        print(f'{resp_pay[1]=}')
         if not status_before:
             for item_id in ret_order['items']:
-                resp_stock = requests.post(f"{stock_url}/subtract/{item_id}/1")
-                if resp_stock.status_code >= 400:
-                    return resp_stock.text, 400
+                resp_stock = remove_stock(item_id, 1)
+                print(f'{resp_stock[1]=}')
 
         return 'success', 200
     except Exception as e:
