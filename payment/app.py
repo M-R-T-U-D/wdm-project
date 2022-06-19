@@ -94,8 +94,10 @@ def add_credit(user_id: str, amount: float):
 def pay_helper(session, user_id, order_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
 
-    status = json.loads(payment_status(user_id, order_id).get_data(as_text=True))
-    if not status['paid']:
+    status = payment_status(user_id, order_id)
+    if status[1] >= 400:
+        return status
+    if not status[0].json['paid']:
         if user.credit >= amount:
             user.credit -= amount
             new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount)
@@ -176,5 +178,7 @@ def payment_status(user_id: str, order_id: str):
             return jsonify(paid=True), 200
         else:
             return jsonify(paid=False), 200
+    except MultipleResultsFound:
+        return "Multiple payments were found while one is expected", 400
     except Exception as e:
         return str(e), 404

@@ -1,14 +1,14 @@
 CREATE TABLE users
 (
   user_id UUID PRIMARY KEY,
-  credit FLOAT DEFAULT 0.0 NOT NULL
+  credit FLOAT DEFAULT 0.0 NOT NULL CHECK (credit >= 0)
 --  credit NUMERIC(100000, 64) DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE stocks
 (
   item_id UUID PRIMARY KEY,
-  stock INTEGER NOT NULL,
+  stock INTEGER NOT NULL CHECK (stock >= 0),
   price FLOAT NOT NULL
 --  price NUMERIC(100000, 64) NOT NULL
 );

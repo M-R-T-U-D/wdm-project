@@ -135,6 +135,7 @@ def payment_status(user_id: str, order_id: str):
             return jsonify(paid=True), 200
         else:
             return jsonify(paid=False), 200
+
     except MultipleResultsFound:
         return "Multiple payments were found while one or zero is expected", 400
     except Exception as e:
@@ -185,7 +186,7 @@ def find_order(order_id):
                 stock_price = find_item_stock(order_item.item_id)
                 if (stock_price[1] >= 400):
                     return stock_price
-                stock_price = json.loads(stock_price[0].get_data(as_text=True))['price']
+                stock_price = stock_price[0].json['price']
                 total_cost += float(stock_price)
                 items.append(order_item.item_id)
             return jsonify(
@@ -206,8 +207,10 @@ def find_order(order_id):
 def pay_credit_helper(session, user_id, order_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
 
-    status = json.loads(payment_status(user_id, order_id).get_data(as_text=True))
-    if not status['paid']:
+    status = payment_status(user_id, order_id)
+    if status[1] >= 400:
+        return status
+    if not status[0].json['paid']:
         if user.credit >= amount:
             user.credit -= amount
             new_payment = Payment(user_id=user_id, order_id=order_id, amount=amount)
@@ -260,19 +263,22 @@ def checkout(order_id):
         ord = find_order(order_id)
         if ord[1] >= 400:
             return ord
-        ret_order = json.loads(ord[0].get_data(as_text=True))
-        status_before = ret_order['paid']
-        resp_pay = pay_credit(ret_order['user_id'], ret_order['order_id'], ret_order['total_cost'])
-        print(f'{resp_pay[1]=}')
-        if resp_pay[1] >= 400:
-            return resp_pay
+        ret_order = ord[0]
+        status_before = ret_order.json['paid']
         if not status_before:
-            for item_id in ret_order['items']:
+            for item_id in ret_order.json['items']:
                 resp_stock = remove_stock(item_id, 1)
                 print(f'{resp_stock[1]=}')
                 if resp_stock[1] >= 400:
                     return resp_stock
-
+        resp_pay = pay_credit(ret_order.json['user_id'], ret_order.json['order_id'], ret_order.json['total_cost'])
+        print(f'{resp_pay[1]=}')
+        if resp_pay[1] >= 400:
+            return resp_pay
         return 'success', 200
+    except NoResultFound:
+        return "No item was found", 400
+    except MultipleResultsFound:
+        return "Multiple items were found while one is expected", 400
     except Exception as e:
         return str(e), 400
