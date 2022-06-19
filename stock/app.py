@@ -150,12 +150,12 @@ def prepare_remove_stock(transaction_id, item_id: str, amount: int):
 def endTransaction(transaction_id, status):
     try:
         if status == 'commit':
-            transactions[transaction_id].commit()
+            transactions[transaction_id]["session"].commit()
         elif status == 'rollback':
-            transactions[transaction_id].rollback()
+            transactions[transaction_id]["session"].rollback()
         else :
             return 'Unknown status: ' + status, 400
-        transactions[transaction_id].close()
+        transactions[transaction_id]["session"].close()
         del transactions[transaction_id]
         return 'Success', 200
 
