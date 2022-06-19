@@ -23,7 +23,7 @@ datebase_url = os.environ['DATABASE_URL']
 app = Flask("order-service")
 
 try:
-    engine = create_engine(datebase_url)
+    engine = create_engine(datebase_url, connect_args={'connect_timeout': 5})
 except Exception as e:
     print("Failed to connect to database.")
     print(f"{e}")
