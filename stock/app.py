@@ -57,6 +57,10 @@ def find_item_helper(session, item_id):
 
 @app.get('/find/<item_id>')
 def find_item(item_id: str):
+
+    if not isItemResourceAvailable(item_id):
+        return "Item is being used by another transaction", 400
+
     try:
         ret_item = run_transaction(
             sessionmaker(bind=engine, expire_on_commit=False),
@@ -77,6 +81,10 @@ def add_stock_helper(session, item_id, amount):
 
 @app.post('/add/<item_id>/<int:amount>')
 def add_stock(item_id: str, amount: int):
+
+    if not isItemResourceAvailable(item_id):
+        return "Item is being used by another transaction", 400
+
     try:
         run_transaction(
             sessionmaker(bind=engine),
@@ -119,10 +127,13 @@ def prepare_remove_stock(transaction_id, item_id: str, amount: int):
     try:
         session = None
         if transaction_id in transactions:
-            session = transactions[transaction_id]
+            session = transactions[transaction_id]["session"]
         else :
             session = sessionmaker(engine)()
-            transactions[transaction_id] = session
+            transactions[transaction_id] = {
+                                            "session": session,
+                                            "item_id": item_id
+                                            }
 
         remove_stock_helper(session, item_id, amount)
         session.flush()
@@ -151,8 +162,8 @@ def endTransaction(transaction_id, status):
     except Exception:
         return 'failure', 400
 
-# def main():
-#     Base.metadata.create_all(bind=engine, checkfirst=True)
-#     app.run(host="0.0.0.0", port=8081, debug=True)
-
-# if __name__ == '__main__':
+def isItemResourceAvailable(item_id):
+    for key in transactions:
+        if transactions[key]["item_id"] == item_id:
+            return False
+    return True
