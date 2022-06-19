@@ -58,8 +58,13 @@ def find_user_helper(session, user_id):
     user = session.query(User).filter(User.user_id == user_id).one()
     return user
 
+#Blocking on same user
 @app.get('/find_user/<user_id>')
 def find_user(user_id: str):
+
+    if not isUserResourceAvailable(user_id):
+        return "User resource is not available", 400
+
     try:
         # expire_on_commit=False to reuse returned User object attrs
         ret_user = run_transaction(
@@ -81,6 +86,10 @@ def add_credit_helper(session, user_id, amount):
 
 @app.post('/add_funds/<user_id>/<amount>')
 def add_credit(user_id: str, amount: float):
+
+    if not isUserResourceAvailable(user_id):
+        return "User resource is not available", 400
+
     try:
         run_transaction(
             sessionmaker(bind=engine),
@@ -145,6 +154,10 @@ def cancel_payment_helper(session, user_id, order_id):
 
 @app.post('/cancel/<user_id>/<order_id>')
 def cancel_payment(user_id: str, order_id: str):
+
+    if not isResourceAvailable(user_id, order_id):
+        return "Resource is not available", 400
+
     try:
         run_transaction(
             sessionmaker(bind=engine), 
@@ -170,6 +183,10 @@ def status_helper(session, user_id, order_id):
 
 @app.post('/status/<user_id>/<order_id>')
 def payment_status(user_id: str, order_id: str):
+
+    if not isResourceAvailable(user_id, order_id):
+        return "Resource is not available, payment in progress", 400
+
     ret_paid = run_transaction(
         sessionmaker(bind=engine, expire_on_commit=False), 
         lambda s: status_helper(s, user_id, order_id)
@@ -186,9 +203,15 @@ transactions = {}
 def prepare_remove_credit(transaction_id, user_id: str, order_id: str, amount: float):
     try:
         session = sessionmaker(engine)()
-        transactions[transaction_id] = session
-
         pay_helper(session, user_id, order_id, amount)
+
+        transactions[transaction_id] = {
+                                        "session": session,
+                                        "user_id": user_id,
+                                        "order_id": order_id,
+                                        }
+
+
         session.flush()
         return 'Ready', 200
     except NoResultFound:
@@ -204,14 +227,32 @@ def prepare_remove_credit(transaction_id, user_id: str, order_id: str, amount: f
 def endTransaction(transaction_id, status):
     try:
         if status == 'commit':
-            transactions[transaction_id].commit()
-            transactions[transaction_id].close()
+            transactions[transaction_id]["session"].commit()
+            transactions[transaction_id]["session"].close()
         elif status == 'rollback':
-            transactions[transaction_id].rollback()
-            transactions[transaction_id].close()
+            transactions[transaction_id]["session"].rollback()
+            transactions[transaction_id]["session"].close()
         else :
             return 'Unknown status: ' + status, 400
+        del transactions[transaction_id]
         return 'Success', 200
 
     except Exception:
         return 'failure', 400
+
+
+def isUserResourceAvailable(user_id):
+    for key in transactions:
+        if transactions[key]["user_id"] == user_id:
+            return False
+    return True
+
+
+def isOrderResourceAvailable(order_id):
+    for key in transactions:
+        if transactions[key]["order_id"] == order_id:
+            return False
+    return True
+
+def isResourceAvailable(user_id, order_id):
+    return isUserResourceAvailable(user_id) and isOrderResourceAvailable(order_id)
