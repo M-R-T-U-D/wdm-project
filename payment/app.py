@@ -63,7 +63,7 @@ def find_user_helper(session, user_id):
 def find_user(user_id: str):
 
     if not isUserResourceAvailable(user_id):
-        return "User resource is not available", 400
+        return jsonify(error="User resource is not available"), 400
 
     try:
         # expire_on_commit=False to reuse returned User object attrs
@@ -102,7 +102,11 @@ def add_credit(user_id: str, amount: float):
 def pay_helper(session, user_id, order_id, amount):
     user = session.query(User).filter(User.user_id == user_id).one()
 
-    status = json.loads(payment_status(user_id, order_id).get_data(as_text=True))
+    call_pay_status = payment_status(user_id, order_id)
+    if call_pay_status.status_code >= 400:
+        return call_pay_status
+
+    status = json.loads(call_pay_status.get_data(as_text=True))
     if not status['paid']:
         if user.credit >= float(amount):
             user.credit -= float(amount)
@@ -134,7 +138,12 @@ def remove_credit(user_id: str, order_id: str, amount: float):
 
 def cancel_payment_helper(session, user_id, order_id):
     user = session.query(User).filter(User.user_id == user_id).one()
-    status = json.loads(payment_status(user_id, order_id).get_data(as_text=True))
+    
+    call_payment_status = payment_status(user_id, order_id)
+    if call_payment_status.status_code >= 400:
+        return call_payment_status
+
+    status = json.loads(call_payment_status.get_data(as_text=True))
     payment = session.query(Payment).filter(
         Payment.user_id == user_id,
         Payment.order_id == order_id
@@ -156,7 +165,7 @@ def cancel_payment_helper(session, user_id, order_id):
 def cancel_payment(user_id: str, order_id: str):
 
     if not isResourceAvailable(user_id, order_id):
-        return "Resource is not available", 400
+        return jsonify(error="Resource is not available"), 400
 
     try:
         run_transaction(

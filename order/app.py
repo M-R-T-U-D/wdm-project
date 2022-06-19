@@ -122,16 +122,18 @@ def find_order(order_id):
 
         if ret_user_order and ret_order_items:
             resp_pay_status = requests.post(f"{payment_url}/status/{ret_user_order.user_id}/{order_id}")
+            resp_pay_status_json_data = json.loads(resp_pay_status.text)
             if resp_pay_status.status_code >= 400:
-                return resp_pay_status.text, 400
-            status = resp_pay_status.json()['paid']
+                return jsonify(error=resp_pay_status.text), 400
+            status = resp_pay_status_json_data['paid']
             items = []
             total_cost = 0.0
             for order_item in ret_order_items:
                 resp_stock_price = requests.get(f"{stock_url}/find/{order_item.item_id}")
+                resp_stock_price_json_data = json.loads(resp_stock_price.text)
                 if resp_stock_price.status_code >= 400:
-                    return resp_stock_price.text, 400
-                stock_price = resp_stock_price.json()['price']
+                    return jsonify(error=resp_stock_price.text), 400
+                stock_price = resp_stock_price_json_data['price']
                 total_cost += float(stock_price)
                 items.append(order_item.item_id)
             return jsonify(
@@ -142,11 +144,11 @@ def find_order(order_id):
                 total_cost=total_cost
             ), 200
         else:
-            return 'Something went wrong!', 400
+            return jsonify(error='Something went wrong!'), 400
     except NoResultFound:
-        return "No user_order was found", 400
+        return jsonify(error="No user_order was found"), 400
     except MultipleResultsFound:
-        return "Multiple user_orders were found while one is expected", 400
+        return jsonify(error="Multiple user_orders were found while one is expected"), 400
 
 
 
@@ -175,19 +177,25 @@ def checkout(order_id):
     try:
         payment_transaction_id = get_new_transaction_id()
 
-        ret_order = json.loads(find_order(order_id)[0].get_data(as_text=True))
+        call_find_order = find_order(order_id)
+        if call_find_order[1] >= 400:
+            return call_find_order
+
+        ret_order = json.loads(call_find_order[0].get_data(as_text=True))
+        
         status_before = ret_order['paid']
 
         stock_transaction_id = get_new_transaction_id()
 
         if status_before:
             # Order is already payed.
-            return 'transaction already checked out', 400
+            return jsonify(error='transaction already checked out'), 400
         else:
             pay_status = requests.post(f"{payment_url}/prepare_pay/{payment_transaction_id}/{ret_order['user_id']}/{ret_order['order_id']}/{ret_order['total_cost']}")
-            
+            pay_status_json_data = json.loads(pay_status.text)
+
             if pay_status.status_code >= 400:
-                return pay_status.text, 400      
+                return jsonify(error=pay_status.text), 400      
 
             stock_subtract_status_list = []
             for idx, item_id in enumerate(ret_order['items']):
@@ -198,10 +206,10 @@ def checkout(order_id):
             all_stock_requests = all([x.status_code == 200 for x in stock_subtract_status_list])
             
             # Check if both services are ready to commit.
-            if pay_status and all_stock_requests:
+            if pay_status_json_data and all_stock_requests:
                 requests.post(f"{payment_url}/endTransaction/{payment_transaction_id}/commit")
                 requests.post(f"{stock_url}/endTransaction/{stock_transaction_id}/commit")
-            elif not pay_status:
+            elif not pay_status_json_data:
                 # Payment went wrong.
                 requests.post(f"{payment_url}/endTransaction/{payment_transaction_id}/rollback")
             else:
