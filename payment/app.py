@@ -24,7 +24,7 @@ app = Flask("payment-service")
 
 # Create engine to connect to the database
 try:
-    engine = create_engine(datebase_url)
+    engine = create_engine(datebase_url, connect_args={'connect_timeout': 5})
 except Exception as e:
     print("Failed to connect to database.")
     print(f"{e}")
