@@ -20,7 +20,7 @@ app = Flask("stock-service")
 # DATABASE_URL= "cockroachdb://root@localhost:26257/defaultdb?sslmode=disable"
 
 try:
-    engine = create_engine(datebase_url)
+    engine = create_engine(datebase_url, connect_args={'connect_timeout': 5})
 except Exception as e:
     print("Failed to connect to database.")
     print(f"{e}")
@@ -57,6 +57,10 @@ def find_item_helper(session, item_id):
 
 @app.get('/find/<item_id>')
 def find_item(item_id: str):
+
+    if not isItemResourceAvailable(item_id):
+        return "Item is being used by another transaction", 400
+
     try:
         ret_item = run_transaction(
             sessionmaker(bind=engine, expire_on_commit=False),
@@ -77,6 +81,10 @@ def add_stock_helper(session, item_id, amount):
 
 @app.post('/add/<item_id>/<int:amount>')
 def add_stock(item_id: str, amount: int):
+
+    if not isItemResourceAvailable(item_id):
+        return "Item is being used by another transaction", 400
+
     try:
         run_transaction(
             sessionmaker(bind=engine),
@@ -97,11 +105,13 @@ def remove_stock_helper(session, item_id, amount):
 
 @app.post('/subtract/<item_id>/<int:amount>')
 def remove_stock(item_id: str, amount: int):
+    print("Remove stock started")
     try:
         run_transaction(
             sessionmaker(bind=engine),
             lambda s: remove_stock_helper(s, item_id, amount)
         )
+        print("Remove stock ended")
         return '', 200
     except NoResultFound:
         return "No item was found", 400
@@ -110,9 +120,50 @@ def remove_stock(item_id: str, amount: int):
     except NotEnoughStockException as e:
         return str(e), 400
 
-# def main():
-#     Base.metadata.create_all(bind=engine, checkfirst=True)
-#     app.run(host="0.0.0.0", port=8081, debug=True)
+transactions = {}
 
-# if __name__ == '__main__':
-#     main()
+@app.post('/prepare_subtract/<transaction_id>/<item_id>/<int:amount>')
+def prepare_remove_stock(transaction_id, item_id: str, amount: int):
+    try:
+        session = None
+        if transaction_id in transactions:
+            session = transactions[transaction_id]["session"]
+        else :
+            session = sessionmaker(engine)()
+            transactions[transaction_id] = {
+                                            "session": session,
+                                            "item_id": item_id
+                                            }
+
+        remove_stock_helper(session, item_id, amount)
+        session.flush()
+
+        return 'Ready', 200
+    except NoResultFound:
+        return "No item was found", 400
+    except MultipleResultsFound:
+        return "Multiple items were found while one is expected", 400
+    except NotEnoughStockException as e:
+        return str(e), 400
+
+@app.post('/endTransaction/<transaction_id>/<status>')
+def endTransaction(transaction_id, status):
+    try:
+        if status == 'commit':
+            transactions[transaction_id]["session"].commit()
+        elif status == 'rollback':
+            transactions[transaction_id]["session"].rollback()
+        else :
+            return 'Unknown status: ' + status, 400
+        transactions[transaction_id]["session"].close()
+        del transactions[transaction_id]
+        return 'Success', 200
+
+    except Exception:
+        return 'failure', 400
+
+def isItemResourceAvailable(item_id):
+    for key in transactions:
+        if transactions[key]["item_id"] == item_id:
+            return False
+    return True
