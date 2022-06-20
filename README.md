@@ -53,3 +53,9 @@ Run script for deploying the db operator (statefulsets), db nodes and services i
 ```
 source ./deploy-kube.sh
 ```
+
+After the deployment script is completed, the services can be accessed via the URL: `http://localhost:8080/`
+
+Pulling the images from dockerhub can be done via the following link:
+
+https://hub.docker.com/search?q=apatandin
